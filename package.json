@@ -1,0 +1,41 @@
+{
+  "name": "excel-warehouse-summary",
+  "version": "1.2.3",
+  "description": "仓配订单汇总 Electron 桌面工具",
+  "main": "src/main.js",
+  "author": "Excel Tool",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "dist": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "electron": "^38.2.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.exceltool.warehousesummary",
+    "productName": "仓配订单汇总工具",
+    "artifactName": "仓配订单汇总工具-${version}-${arch}.${ext}",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;">
+  <title>仓配订单汇总工具</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <h1>仓配订单汇总</h1>
+        <p>库存模式与完整订单模式</p>
+      </div>
+      <div class="top-actions">
+        <span id="modeBadge" class="mode-badge">等待导入表二</span>
+        <button id="exportBtn" class="button primary" disabled>导出表三</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="control-strip" aria-label="数据导入">
+        <div class="file-slot required" id="table2Slot">
+          <div class="slot-copy">
+            <span class="slot-kicker">必需</span>
+            <strong>表二 · 库存数据</strong>
+            <small id="table2Meta">尚未导入</small>
+          </div>
+          <button id="table2Btn" class="button secondary">选择文件</button>
+        </div>
+        <div class="file-slot" id="table1Slot">
+          <div class="slot-copy">
+            <span class="slot-kicker optional">可选</span>
+            <strong>表一 · 订单数据</strong>
+            <small id="table1Meta">不导入也可生成库存汇总</small>
+          </div>
+          <button id="table1Btn" class="button secondary">选择文件</button>
+        </div>
+        <div class="config-block">
+          <label for="brandSelect">汇总品牌</label>
+          <select id="brandSelect" disabled><option>请先导入表二</option></select>
+        </div>
+        <button id="mappingBtn" class="button quiet" disabled>仓库映射 <span id="mappingCount"></span></button>
+      </section>
+
+      <section id="notice" class="notice hidden" role="status"></section>
+
+      <section class="metrics" aria-label="汇总概览">
+        <div class="metric"><span>直营仓</span><strong id="warehouseMetric">0</strong></div>
+        <div class="metric"><span>货品</span><strong id="productMetric">0</strong></div>
+        <div class="metric"><span>明细行</span><strong id="rowMetric">0</strong></div>
+        <div class="metric emphasis"><span>系统订单</span><strong id="orderMetric">0</strong></div>
+        <div class="metric"><span>订单重量（吨）</span><strong id="weightMetric">0.000</strong></div>
+      </section>
+
+      <section class="workspace">
+        <div class="workspace-head">
+          <div>
+            <h2>表三预览</h2>
+            <p id="previewHelp">导入表二后生成预览。实际订单安排可直接编辑。</p>
+          </div>
+          <div class="table-tools">
+            <label class="search-wrap">
+              <span>筛选</span>
+              <input id="searchInput" type="search" placeholder="仓库或货品" disabled>
+            </label>
+          </div>
+        </div>
+        <div id="emptyState" class="empty-state">
+          <div class="empty-mark">表三</div>
+          <h3>先导入库存数据</h3>
+          <p>系统会识别字段、按品牌和直营仓生成汇总，并保留 Excel 导出格式。</p>
+        </div>
+        <div id="tableWrap" class="table-wrap hidden">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-warehouse">仓库名称</th>
+                <th class="col-product">货品名称</th>
+                <th>状态</th><th>规格</th><th>箱规</th><th>高库龄</th><th>高周转</th>
+                <th>良品可用</th><th>非锁定库存</th><th>近1天</th><th>近7天</th><th>近14天</th><th>近30天</th>
+                <th>系统订单</th><th>重量</th><th class="editable-head">实际订单安排</th><th>实际重量</th><th class="editable-head">安排状态</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="mappingDialog">
+    <form method="dialog" class="dialog-shell">
+      <header class="dialog-head">
+        <div><h2>前置仓到直营仓映射</h2><p>系统只自动匹配名称中含相同城市的仓库，其余需要手动选择。</p></div>
+        <button class="icon-button" value="cancel" aria-label="关闭">×</button>
+      </header>
+      <div class="mapping-toolbar">
+        <input id="mappingSearch" type="search" placeholder="筛选前置仓">
+        <span id="mappingSummary"></span>
+      </div>
+      <div class="mapping-list" id="mappingList"></div>
+      <footer class="dialog-foot">
+        <span>映射会保存在本机，下次自动使用。</span>
+        <button id="saveMappingBtn" type="button" class="button primary">保存并重新汇总</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
