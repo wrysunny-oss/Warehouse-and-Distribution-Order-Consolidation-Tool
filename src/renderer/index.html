@@ -16,15 +16,21 @@
       </div>
       <nav class="workflow-switch" aria-label="功能切换">
         <button id="summaryTab" class="workflow-tab active" type="button" aria-current="page">补货汇总</button>
+        <button id="inventoryTab" class="workflow-tab" type="button">更新良品库存</button>
         <button id="deliveryTab" class="workflow-tab" type="button">送货单生成</button>
       </nav>
       <div id="summaryTopActions" class="top-actions">
         <span id="modeBadge" class="mode-badge">等待导入表二</span>
+        <button id="backfillBtn" class="button secondary" type="button">回填订单原表</button>
         <button id="exportBtn" class="button primary" disabled>导出表三</button>
       </div>
       <div id="deliveryTopActions" class="top-actions hidden">
         <span id="deliveryModeBadge" class="mode-badge">等待导入文件</span>
         <button id="generateDeliveryBtn" class="button primary" disabled>生成送货单</button>
+      </div>
+      <div id="inventoryTopActions" class="top-actions hidden">
+        <span id="inventoryModeBadge" class="mode-badge">等待导入文件</span>
+        <button id="exportInventoryBtn" class="button primary" type="button" disabled>导出更新表三</button>
       </div>
     </header>
 
@@ -97,6 +103,74 @@
             </thead>
             <tbody id="resultBody"></tbody>
           </table>
+        </div>
+      </section>
+    </main>
+
+    <main id="inventoryView" class="view hidden">
+      <section class="inventory-intro">
+        <div>
+          <h2>更新表三良品可用</h2>
+          <p>实时库存与在途明细二选一即可，也可以同时导入并一次完成两项更新。</p>
+        </div>
+        <div id="inventoryReadiness" class="readiness"><span class="readiness-dot"></span><span>等待旧表三和数据文件</span></div>
+      </section>
+
+      <section class="inventory-import-grid" aria-label="良品库存更新文件导入">
+        <div class="file-slot required" id="inventoryTable3Slot">
+          <div class="slot-copy">
+            <span class="slot-kicker">必需</span>
+            <strong>旧表三 · 待更新文件</strong>
+            <small id="inventoryTable3Meta">保留原有格式、公式和回填任务信息</small>
+          </div>
+          <button id="inventoryTable3Btn" class="button secondary" type="button">选择文件</button>
+        </div>
+        <div class="file-slot" id="liveInventorySlot">
+          <div class="slot-copy">
+            <span class="slot-kicker">二选一</span>
+            <strong>实时库存 · 可多选</strong>
+            <small id="liveInventoryMeta">每个仓可单独一个文件，一次选择多个 Excel</small>
+          </div>
+          <button id="liveInventoryBtn" class="button secondary" type="button">选择文件</button>
+        </div>
+        <div class="file-slot" id="transitSlot">
+          <div class="slot-copy">
+            <span class="slot-kicker">二选一</span>
+            <strong>库存在途明细</strong>
+            <small id="transitMeta">文件内仓库更新，其余仓库保留原值</small>
+          </div>
+          <button id="transitBtn" class="button secondary" type="button">选择文件</button>
+        </div>
+      </section>
+
+      <section id="inventoryNotice" class="notice hidden" role="status"></section>
+
+      <section class="inventory-metrics" aria-label="更新概览">
+        <div class="metric"><span>表三明细</span><strong id="inventoryTargetMetric">0</strong></div>
+        <div class="metric emphasis"><span>匹配更新</span><strong id="inventoryMatchedMetric">0</strong></div>
+        <div class="metric"><span>保留原值</span><strong id="inventoryPreservedMetric">0</strong></div>
+        <div class="metric"><span>忽略库存行</span><strong id="inventoryIgnoredMetric">0</strong></div>
+        <div class="metric"><span>在途订单</span><strong id="transitMetric">0</strong></div>
+      </section>
+
+      <section class="workspace inventory-workspace">
+        <div class="workspace-head">
+          <div>
+            <h2>更新明细</h2>
+            <p id="inventoryPreviewHelp">导入旧表三，再从实时库存和在途明细中至少选择一种。</p>
+          </div>
+          <span id="inventorySourceSummary" class="section-summary">尚未分析数据</span>
+        </div>
+        <div id="inventoryEmptyState" class="empty-state inventory-empty-state">
+          <div class="empty-mark">库存</div>
+          <h3>先导入旧表三</h3>
+          <p>实时库存和库存在途明细二选一即可；两者都选时会同时更新。</p>
+        </div>
+        <div id="inventoryPreviewWrap" class="inventory-preview-wrap hidden">
+          <div class="inventory-list-head" aria-hidden="true">
+            <span>仓库名称</span><span>货品名称</span><span>原良品可用</span><span>新良品可用</span><span>变化</span><span>在途订单</span>
+          </div>
+          <div id="inventoryUpdateList" class="inventory-update-list"></div>
         </div>
       </section>
     </main>
@@ -247,6 +321,27 @@
           <button id="restoreProductCatalogBtn" type="button" class="button secondary">恢复默认</button>
           <button value="cancel" class="button quiet">取消</button>
           <button id="saveProductCatalogBtn" type="button" class="button primary">保存并重新汇总</button>
+        </div>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="backfillDialog" class="backfill-dialog">
+    <form method="dialog" class="dialog-shell backfill-dialog-shell">
+      <header class="dialog-head">
+        <div>
+          <h2>回填订单原表</h2>
+          <p id="backfillTaskMeta">新版表三可直接回填；旧版表三会提示补选对应的订单原表。</p>
+        </div>
+        <button class="icon-button" value="cancel" aria-label="关闭">×</button>
+      </header>
+      <div id="backfillSummary" class="backfill-summary"></div>
+      <div id="backfillWarehouseList" class="backfill-list"></div>
+      <footer class="dialog-foot backfill-foot">
+        <span id="backfillFootnote">数量将按订单原表的行顺序依次分配，每行不超过采购数量。</span>
+        <div class="dialog-actions">
+          <button value="cancel" class="button quiet">取消</button>
+          <button id="confirmBackfillBtn" type="button" class="button primary" disabled>生成分仓文件</button>
         </div>
       </footer>
     </form>

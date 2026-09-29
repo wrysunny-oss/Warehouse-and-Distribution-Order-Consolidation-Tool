@@ -9,6 +9,13 @@ const state = {
   actualOrders: {},
   warehouseStatus: {},
   result: null,
+  backfillPreview: null,
+  inventoryUpdate: {
+    table3: null,
+    inventories: [],
+    transit: null,
+    analysis: null
+  },
   mappingRows: [],
   mappingDraft: {},
   workflow: 'summary',
@@ -29,9 +36,10 @@ const state = {
 
 const el = (id) => document.getElementById(id);
 const refs = {
-  summaryTab: el('summaryTab'), deliveryTab: el('deliveryTab'), summaryView: el('summaryView'), deliveryView: el('deliveryView'),
-  summaryTopActions: el('summaryTopActions'), deliveryTopActions: el('deliveryTopActions'),
-  table1Btn: el('table1Btn'), table2Btn: el('table2Btn'), exportBtn: el('exportBtn'),
+  summaryTab: el('summaryTab'), inventoryTab: el('inventoryTab'), deliveryTab: el('deliveryTab'),
+  summaryView: el('summaryView'), inventoryView: el('inventoryView'), deliveryView: el('deliveryView'),
+  summaryTopActions: el('summaryTopActions'), inventoryTopActions: el('inventoryTopActions'), deliveryTopActions: el('deliveryTopActions'),
+  table1Btn: el('table1Btn'), table2Btn: el('table2Btn'), exportBtn: el('exportBtn'), backfillBtn: el('backfillBtn'),
   table1Meta: el('table1Meta'), table2Meta: el('table2Meta'), table1Slot: el('table1Slot'), table2Slot: el('table2Slot'),
   brandSelect: el('brandSelect'), mappingBtn: el('mappingBtn'), mappingCount: el('mappingCount'), modeBadge: el('modeBadge'),
   productCatalogBtn: el('productCatalogBtn'), productCatalogCount: el('productCatalogCount'),
@@ -40,6 +48,8 @@ const refs = {
   mappingDialog: el('mappingDialog'), mappingList: el('mappingList'), mappingSearch: el('mappingSearch'), mappingSummary: el('mappingSummary'), saveMappingBtn: el('saveMappingBtn'),
   productCatalogDialog: el('productCatalogDialog'), productCatalogBrand: el('productCatalogBrand'), productCatalogTextarea: el('productCatalogTextarea'),
   productCatalogStatus: el('productCatalogStatus'), saveProductCatalogBtn: el('saveProductCatalogBtn'), restoreProductCatalogBtn: el('restoreProductCatalogBtn'),
+  backfillDialog: el('backfillDialog'), backfillTaskMeta: el('backfillTaskMeta'), backfillSummary: el('backfillSummary'),
+  backfillWarehouseList: el('backfillWarehouseList'), backfillFootnote: el('backfillFootnote'), confirmBackfillBtn: el('confirmBackfillBtn'),
   productBtn: el('productBtn'), receiptBtn: el('receiptBtn'), productMeta: el('productMeta'), receiptMeta: el('receiptMeta'), productSlot: el('productSlot'), receiptSlot: el('receiptSlot'),
   deliveryNotice: el('deliveryNotice'), deliveryBrands: el('deliveryBrands'), deliveryWarehouses: el('deliveryWarehouses'), deliverySourceSummary: el('deliverySourceSummary'),
   supplierNameInput: el('supplierNameInput'), shelfLifeInput: el('shelfLifeInput'), contactInput: el('contactInput'), splitByWarehouseInput: el('splitByWarehouseInput'),
@@ -47,7 +57,14 @@ const refs = {
   selectVisibleProductsBtn: el('selectVisibleProductsBtn'), clearProductSelectionBtn: el('clearProductSelectionBtn'),
   productionDateInput: el('productionDateInput'), applyProductionDateBtn: el('applyProductionDateBtn'), datedProductCount: el('datedProductCount'),
   deliveryMetrics: el('deliveryMetrics'), deliveryExportHint: el('deliveryExportHint'), deliveryReadiness: el('deliveryReadiness'), deliveryModeBadge: el('deliveryModeBadge'),
-  generateDeliveryBtn: el('generateDeliveryBtn'), toast: el('toast')
+  generateDeliveryBtn: el('generateDeliveryBtn'),
+  inventoryModeBadge: el('inventoryModeBadge'), exportInventoryBtn: el('exportInventoryBtn'), inventoryReadiness: el('inventoryReadiness'),
+  inventoryTable3Btn: el('inventoryTable3Btn'), liveInventoryBtn: el('liveInventoryBtn'), transitBtn: el('transitBtn'),
+  inventoryTable3Slot: el('inventoryTable3Slot'), liveInventorySlot: el('liveInventorySlot'), transitSlot: el('transitSlot'),
+  inventoryTable3Meta: el('inventoryTable3Meta'), liveInventoryMeta: el('liveInventoryMeta'), transitMeta: el('transitMeta'), inventoryNotice: el('inventoryNotice'),
+  inventoryTargetMetric: el('inventoryTargetMetric'), inventoryMatchedMetric: el('inventoryMatchedMetric'), inventoryPreservedMetric: el('inventoryPreservedMetric'), inventoryIgnoredMetric: el('inventoryIgnoredMetric'), transitMetric: el('transitMetric'),
+  inventoryPreviewHelp: el('inventoryPreviewHelp'), inventorySourceSummary: el('inventorySourceSummary'), inventoryEmptyState: el('inventoryEmptyState'),
+  inventoryPreviewWrap: el('inventoryPreviewWrap'), inventoryUpdateList: el('inventoryUpdateList'), toast: el('toast')
 };
 
 function loadJson(key, fallback) {
@@ -99,8 +116,8 @@ function showToast(message) {
 
 function showNotice(message, type = 'warning') {
   refs.notice.textContent = message;
-  refs.notice.classList.remove('hidden', 'error');
-  if (type === 'error') refs.notice.classList.add('error');
+  refs.notice.classList.remove('hidden', 'error', 'success');
+  if (type !== 'warning') refs.notice.classList.add(type);
 }
 
 function clearNotice() {
@@ -122,14 +139,20 @@ function clearDeliveryNotice() {
 function switchWorkflow(workflow) {
   state.workflow = workflow;
   const isSummary = workflow === 'summary';
+  const isInventory = workflow === 'inventory';
+  const isDelivery = workflow === 'delivery';
   refs.summaryTab.classList.toggle('active', isSummary);
-  refs.deliveryTab.classList.toggle('active', !isSummary);
+  refs.inventoryTab.classList.toggle('active', isInventory);
+  refs.deliveryTab.classList.toggle('active', isDelivery);
   refs.summaryTab.toggleAttribute('aria-current', isSummary);
-  refs.deliveryTab.toggleAttribute('aria-current', !isSummary);
+  refs.inventoryTab.toggleAttribute('aria-current', isInventory);
+  refs.deliveryTab.toggleAttribute('aria-current', isDelivery);
   refs.summaryView.classList.toggle('hidden', !isSummary);
-  refs.deliveryView.classList.toggle('hidden', isSummary);
+  refs.inventoryView.classList.toggle('hidden', !isInventory);
+  refs.deliveryView.classList.toggle('hidden', !isDelivery);
   refs.summaryTopActions.classList.toggle('hidden', !isSummary);
-  refs.deliveryTopActions.classList.toggle('hidden', isSummary);
+  refs.inventoryTopActions.classList.toggle('hidden', !isInventory);
+  refs.deliveryTopActions.classList.toggle('hidden', !isDelivery);
 }
 
 async function importFile(type) {
@@ -284,7 +307,7 @@ function renderTable() {
       tr.append(td(formatNumber(row.weight, 4)));
       const actualCell = document.createElement('td');
       const input = document.createElement('input');
-      input.type = 'number'; input.min = '0'; input.step = String(row.boxSpec); input.value = row.actualOrder || '';
+      input.type = 'number'; input.min = '0'; input.step = String(row.boxSpec); input.value = String(row.actualOrder ?? 0);
       if (row.hasOrderLimit) input.max = String(row.systemOrder);
       input.disabled = row.hasOrderLimit && row.systemOrder === 0;
       input.title = `系统建议 ${formatNumber(row.suggestedActual)} 件，箱规 ${formatNumber(row.boxSpec)}`;
@@ -395,17 +418,270 @@ async function exportResult() {
   refs.exportBtn.disabled = true;
   refs.exportBtn.textContent = '正在导出';
   try {
-    const filePath = await window.excelTool.exportExcel({
+    const exported = await window.excelTool.exportExcel({
       ...state.result,
       brand: state.brand,
-      orderHeader: state.table1?.resultOrderHeader || '系统订单'
+      orderHeader: state.table1?.resultOrderHeader || '系统订单',
+      sourceOrderFilePath: state.table1?.filePath || '',
+      sourceOrderSheetName: state.table1?.sheetName || '',
+      sourceOrderHeader: state.table1?.orderHeader || '采购数量'
     });
-    if (filePath) showToast(`已导出：${filePath}`);
+    if (exported) {
+      const taskCopy = exported.backfillTask ? '，可在实际订单确认后回填订单原表' : '；当前未导入订单原表，本文件不包含回填任务';
+      showNotice(`表三已导出${taskCopy}。`, exported.backfillTask ? 'success' : 'warning');
+      showToast(`已导出：${exported.filePath}`);
+    }
   } catch (error) {
     showNotice(error.message || '导出失败，请检查文件是否被占用。', 'error');
   } finally {
     refs.exportBtn.disabled = false;
     refs.exportBtn.textContent = '导出表三';
+  }
+}
+
+function backfillMetric(label, value, className = '') {
+  const item = document.createElement('div');
+  item.className = `backfill-summary-item${className ? ` ${className}` : ''}`;
+  const name = document.createElement('span'); name.textContent = label;
+  const number = document.createElement('strong'); number.textContent = value;
+  item.append(name, number);
+  return item;
+}
+
+function renderBackfillPreview() {
+  const preview = state.backfillPreview;
+  refs.backfillFootnote.style.color = '';
+  const versionCopy = preview.legacy ? '旧版表三 · 外部订单原表' : '内置回填任务';
+  refs.backfillTaskMeta.textContent = `${preview.fileName} · ${preview.brand || '未标注品牌'} · ${versionCopy}：${preview.sourceFileName}`;
+  refs.backfillSummary.replaceChildren(
+    backfillMetric('识别仓库', formatNumber(preview.warehouses.length)),
+    backfillMetric('可以生成', formatNumber(preview.readyWarehouseCount), 'ready'),
+    backfillMetric('异常项目', formatNumber(preview.errorCount), preview.errorCount ? 'error' : '')
+  );
+  refs.backfillWarehouseList.replaceChildren();
+  const fragment = document.createDocumentFragment();
+  preview.warehouses.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = `backfill-row${item.ready ? '' : ' has-error'}`;
+    const warehouse = document.createElement('div'); warehouse.className = 'backfill-warehouse'; warehouse.textContent = item.warehouse; warehouse.title = item.warehouse;
+    const groups = document.createElement('div'); groups.className = 'backfill-number'; groups.textContent = `${formatNumber(item.groupCount)} 个货品`;
+    const total = document.createElement('div'); total.className = 'backfill-number'; total.textContent = `${formatNumber(item.actualTotal)} 件`;
+    const status = document.createElement('div'); status.className = `backfill-status${item.ready ? '' : ' error'}`; status.textContent = item.ready ? '可生成' : '需处理';
+    row.append(warehouse, groups, total, status);
+    if (item.errors.length) {
+      const errors = document.createElement('p'); errors.className = 'backfill-errors'; errors.textContent = item.errors.join('；'); row.append(errors);
+    }
+    fragment.append(row);
+  });
+  refs.backfillWarehouseList.append(fragment);
+  refs.confirmBackfillBtn.disabled = preview.readyWarehouseCount === 0;
+  refs.backfillFootnote.textContent = preview.errorCount
+    ? '有异常的仓库不会生成；其余仓库仍可正常导出。请修正表三后可再次回导。'
+    : '数量将按订单原表的行顺序依次分配，每行不超过采购数量。';
+}
+
+async function openBackfill() {
+  const original = refs.backfillBtn.textContent;
+  refs.backfillBtn.disabled = true;
+  refs.backfillBtn.textContent = '正在读取';
+  clearNotice();
+  try {
+    const preview = await window.excelTool.openBackfillExcel();
+    if (!preview) return;
+    state.backfillPreview = preview;
+    renderBackfillPreview();
+    refs.backfillDialog.showModal();
+  } catch (error) {
+    showNotice(error.message || '回传表三读取失败，请确认文件来自当前版本工具。', 'error');
+  } finally {
+    refs.backfillBtn.disabled = false;
+    refs.backfillBtn.textContent = original;
+  }
+}
+
+async function exportBackfill() {
+  if (!state.backfillPreview) return;
+  refs.confirmBackfillBtn.disabled = true;
+  refs.confirmBackfillBtn.textContent = '正在生成';
+  try {
+    const result = await window.excelTool.exportBackfill({
+      filePath: state.backfillPreview.filePath,
+      sourceFilePath: state.backfillPreview.sourceFilePath || ''
+    });
+    if (!result) return;
+    refs.backfillDialog.close();
+    const skipped = result.skipped.length ? `，另有 ${result.skipped.length} 个异常仓库未生成` : '';
+    showNotice(`已生成 ${result.files.length} 个分仓补货单${skipped}。`, 'success');
+    showToast(`分仓文件已保存到：${result.directory}`);
+  } catch (error) {
+    refs.backfillFootnote.textContent = error.message || '生成失败，请检查文件是否被占用。';
+    refs.backfillFootnote.style.color = 'var(--danger)';
+  } finally {
+    refs.confirmBackfillBtn.textContent = '生成分仓文件';
+    refs.confirmBackfillBtn.disabled = !state.backfillPreview?.readyWarehouseCount;
+  }
+}
+
+function showInventoryNotice(message, type = 'warning') {
+  refs.inventoryNotice.textContent = message;
+  refs.inventoryNotice.classList.remove('hidden', 'error', 'success');
+  if (type !== 'warning') refs.inventoryNotice.classList.add(type);
+}
+
+function clearInventoryNotice() {
+  refs.inventoryNotice.classList.add('hidden');
+  refs.inventoryNotice.textContent = '';
+}
+
+function renderInventoryUpdate() {
+  const analysis = state.inventoryUpdate.analysis;
+  const hasFiles = Boolean(state.inventoryUpdate.table3 && (state.inventoryUpdate.inventories.length || state.inventoryUpdate.transit));
+  refs.inventoryTargetMetric.textContent = formatNumber(analysis?.targetRows || 0);
+  refs.inventoryMatchedMetric.textContent = formatNumber(analysis?.matchedRows || 0);
+  refs.inventoryPreservedMetric.textContent = formatNumber(analysis?.preservedRows || 0);
+  refs.inventoryIgnoredMetric.textContent = formatNumber(analysis?.ignoredInventoryRows || 0);
+  refs.transitMetric.textContent = analysis?.hasTransit ? formatNumber(analysis.transitTotal) : '—';
+  refs.inventoryReadiness.classList.remove('ready', 'warning');
+  refs.exportInventoryBtn.disabled = !analysis?.canExport;
+  refs.inventoryEmptyState.classList.toggle('hidden', Boolean(analysis));
+  refs.inventoryPreviewWrap.classList.toggle('hidden', !analysis);
+
+  if (!hasFiles) {
+    refs.inventoryModeBadge.textContent = '等待导入文件';
+    refs.inventoryReadiness.lastElementChild.textContent = '等待旧表三和数据文件';
+    refs.inventorySourceSummary.textContent = '尚未分析数据';
+    refs.inventoryPreviewHelp.textContent = '导入旧表三，再从实时库存和在途明细中至少选择一种。';
+    return;
+  }
+  if (!analysis) {
+    refs.inventoryModeBadge.textContent = '正在分析';
+    refs.inventoryReadiness.lastElementChild.textContent = '正在分析文件';
+    return;
+  }
+
+  const sourceParts = [];
+  if (analysis.inventoryFileCount) sourceParts.push(`${analysis.inventoryFileCount} 份库存 · ${analysis.matchedRows} 条匹配`);
+  if (analysis.hasTransit) sourceParts.push(`在途 ${analysis.matchedTransitRows} 条 / ${formatNumber(analysis.transitTotal)} 件`);
+  refs.inventorySourceSummary.textContent = sourceParts.join(' · ');
+  refs.inventoryPreviewHelp.textContent = `显示 ${formatNumber(analysis.previewRows.length)} 条库存或在途匹配明细。`;
+  refs.inventoryUpdateList.replaceChildren();
+  const fragment = document.createDocumentFragment();
+  analysis.previewRows.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = `inventory-update-row${Number(item.oldValue) === item.newValue ? ' unchanged' : ''}`;
+    const warehouse = document.createElement('span'); warehouse.className = 'inventory-warehouse'; warehouse.textContent = item.warehouse; warehouse.title = item.warehouse;
+    const product = document.createElement('span'); product.className = 'inventory-product'; product.textContent = item.product; product.title = item.product;
+    const oldValue = document.createElement('span'); oldValue.className = 'inventory-number'; oldValue.textContent = formatNumber(item.oldValue);
+    const newValue = document.createElement('strong'); newValue.className = 'inventory-number inventory-new-value'; newValue.textContent = formatNumber(item.newValue);
+    const difference = document.createElement('span'); difference.className = `inventory-difference${item.difference > 0 ? ' positive' : item.difference < 0 ? ' negative' : ''}`;
+    difference.textContent = item.difference === null ? '—' : `${item.difference > 0 ? '+' : ''}${formatNumber(item.difference)}`;
+    const transit = document.createElement('strong'); transit.className = 'inventory-number inventory-transit-value'; transit.textContent = analysis.hasTransit ? formatNumber(item.transitValue) : '—';
+    row.append(warehouse, product, oldValue, newValue, difference, transit);
+    fragment.append(row);
+  });
+  refs.inventoryUpdateList.append(fragment);
+
+  if (analysis.errors.length) {
+    refs.inventoryReadiness.classList.add('warning');
+    refs.inventoryReadiness.lastElementChild.textContent = '存在数据冲突';
+    refs.inventoryModeBadge.textContent = `${analysis.errors.length} 个问题待处理`;
+    const firstErrors = analysis.errors.slice(0, 3).join('；');
+    showInventoryNotice(`${firstErrors}${analysis.errors.length > 3 ? `；另有 ${analysis.errors.length - 3} 个问题` : ''}。`, 'error');
+  } else if (!analysis.matchedRows && !analysis.matchedTransitRows) {
+    refs.inventoryReadiness.classList.add('warning');
+    refs.inventoryReadiness.lastElementChild.textContent = '没有匹配数据';
+    refs.inventoryModeBadge.textContent = '无法导出';
+    showInventoryNotice('没有找到仓库名称和货品名称都相同的明细，请检查所选文件是否属于表三中的仓库和货品。', 'error');
+  } else {
+    refs.inventoryReadiness.classList.add('ready');
+    refs.inventoryReadiness.lastElementChild.textContent = '可以导出';
+    refs.inventoryModeBadge.textContent = `${analysis.matchedRows} 条库存 · ${analysis.matchedTransitRows} 条在途`;
+    const duplicateCopy = analysis.duplicateInventoryGroups ? `；${analysis.duplicateInventoryGroups} 组同文件重复库存已合计` : '';
+    const transitPreserveCopy = analysis.hasExistingTransitColumn && analysis.preservedTransitWarehouses.length
+      ? `，${analysis.preservedTransitWarehouses.length} 个未出现在文件中的仓库保留原值`
+      : '';
+    const transitCopy = analysis.hasTransit
+      ? `；在途匹配 ${analysis.matchedTransitRows} 条、合计 ${formatNumber(analysis.transitTotal)} 件，仅覆盖文件中的 ${analysis.sourceTransitWarehouses.length} 个仓库${transitPreserveCopy}${analysis.duplicateTransitGroups ? `，${analysis.duplicateTransitGroups} 组多业务单已合计` : ''}`
+      : '';
+    showInventoryNotice(`将更新 ${analysis.changedRows} 条良品可用，${analysis.unchangedRows} 条数值不变，${analysis.preservedRows} 条未匹配明细保留原值${duplicateCopy}${transitCopy}。`, 'success');
+  }
+}
+
+async function analyzeInventoryFiles() {
+  if (!state.inventoryUpdate.table3 || (!state.inventoryUpdate.inventories.length && !state.inventoryUpdate.transit)) return renderInventoryUpdate();
+  clearInventoryNotice();
+  state.inventoryUpdate.analysis = null;
+  renderInventoryUpdate();
+  try {
+    state.inventoryUpdate.analysis = await window.excelTool.analyzeInventoryUpdate({
+      table3Path: state.inventoryUpdate.table3.filePath,
+      inventoryPaths: state.inventoryUpdate.inventories.map((file) => file.filePath),
+      transitPath: state.inventoryUpdate.transit?.filePath || ''
+    });
+  } catch (error) {
+    showInventoryNotice(error.message || '分析失败，请检查 Excel 文件格式。', 'error');
+  }
+  renderInventoryUpdate();
+}
+
+async function importInventoryUpdateFile(type) {
+  const isTable3 = type === 'table3';
+  const isTransit = type === 'transit';
+  const button = isTable3 ? refs.inventoryTable3Btn : isTransit ? refs.transitBtn : refs.liveInventoryBtn;
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = '正在读取';
+  clearInventoryNotice();
+  try {
+    const payload = await window.excelTool.openInventoryUpdateExcel(type);
+    if (!payload) return;
+    state.inventoryUpdate.analysis = null;
+    if (isTable3) {
+      state.inventoryUpdate.table3 = payload;
+      refs.inventoryTable3Slot.classList.add('loaded');
+      refs.inventoryTable3Meta.textContent = `${payload.fileName} · ${payload.sheetName} · ${payload.rowCount} 条明细`;
+    } else if (isTransit) {
+      state.inventoryUpdate.transit = payload;
+      refs.transitSlot.classList.add('loaded');
+      refs.transitMeta.textContent = `${payload.fileName} · ${payload.sheetName} · ${payload.rowCount} 条明细`;
+    } else {
+      state.inventoryUpdate.inventories = payload;
+      refs.liveInventorySlot.classList.add('loaded');
+      const totalRows = payload.reduce((sum, file) => sum + file.rowCount, 0);
+      refs.liveInventoryMeta.textContent = `${payload.length} 个文件 · ${totalRows} 条商品明细`;
+    }
+    button.textContent = '重新选择';
+    await analyzeInventoryFiles();
+    showToast(`${isTable3 ? '旧表三' : isTransit ? '库存在途明细' : `${payload.length} 份实时库存`}导入成功`);
+  } catch (error) {
+    showInventoryNotice(error.message || '文件读取失败，请检查 Excel 格式。', 'error');
+  } finally {
+    button.disabled = false;
+    if (button.textContent === '正在读取') button.textContent = original;
+  }
+}
+
+async function exportInventoryUpdate() {
+  const analysis = state.inventoryUpdate.analysis;
+  if (!analysis?.canExport) return;
+  refs.exportInventoryBtn.disabled = true;
+  refs.exportInventoryBtn.textContent = '正在导出';
+  clearInventoryNotice();
+  try {
+    const result = await window.excelTool.exportInventoryUpdate({
+      table3Path: state.inventoryUpdate.table3.filePath,
+      inventoryPaths: state.inventoryUpdate.inventories.map((file) => file.filePath),
+      transitPath: state.inventoryUpdate.transit?.filePath || ''
+    });
+    if (!result) return;
+    const transitCopy = result.hasTransit ? `，并写入 ${result.matchedTransitRows} 条在途订单、合计 ${formatNumber(result.transitTotal)} 件` : '';
+    showInventoryNotice(`已更新 ${result.changedRows} 条良品可用${transitCopy}；${result.preservedRows} 条未匹配库存明细保留原值。`, 'success');
+    showToast(`更新后的表三已保存到：${result.filePath}`);
+  } catch (error) {
+    showInventoryNotice(error.message || '导出失败，请检查文件是否被占用。', 'error');
+  } finally {
+    refs.exportInventoryBtn.textContent = '导出更新表三';
+    refs.exportInventoryBtn.disabled = !state.inventoryUpdate.analysis?.canExport;
   }
 }
 
@@ -701,6 +977,8 @@ async function exportDelivery() {
 refs.table1Btn.addEventListener('click', () => importFile('table1'));
 refs.table2Btn.addEventListener('click', () => importFile('table2'));
 refs.exportBtn.addEventListener('click', exportResult);
+refs.backfillBtn.addEventListener('click', openBackfill);
+refs.confirmBackfillBtn.addEventListener('click', exportBackfill);
 refs.mappingBtn.addEventListener('click', openMappingDialog);
 refs.productCatalogBtn.addEventListener('click', openProductCatalogDialog);
 refs.saveProductCatalogBtn.addEventListener('click', saveProductCatalog);
@@ -715,7 +993,12 @@ refs.brandSelect.addEventListener('change', async (event) => {
   await rebuild();
 });
 refs.summaryTab.addEventListener('click', () => switchWorkflow('summary'));
+refs.inventoryTab.addEventListener('click', () => switchWorkflow('inventory'));
 refs.deliveryTab.addEventListener('click', () => switchWorkflow('delivery'));
+refs.inventoryTable3Btn.addEventListener('click', () => importInventoryUpdateFile('table3'));
+refs.liveInventoryBtn.addEventListener('click', () => importInventoryUpdateFile('inventory'));
+refs.transitBtn.addEventListener('click', () => importInventoryUpdateFile('transit'));
+refs.exportInventoryBtn.addEventListener('click', exportInventoryUpdate);
 refs.productBtn.addEventListener('click', () => importDeliveryFile('product'));
 refs.receiptBtn.addEventListener('click', () => importDeliveryFile('receipt'));
 refs.deliveryProductSearch.addEventListener('input', () => { renderDeliveryProducts(); updateDeliveryControls(); });
@@ -741,5 +1024,6 @@ refs.shelfLifeInput.value = state.delivery.shelfLife;
 refs.contactInput.value = state.delivery.contact;
 refs.splitByWarehouseInput.checked = state.delivery.splitByWarehouse;
 renderEmpty();
+renderInventoryUpdate();
 renderDeliveryState();
 switchWorkflow('summary');

@@ -9,6 +9,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
+    "pack": "electron-builder --dir -c.electronDist=node_modules/electron/dist",
+    "dist:fast": "electron-builder --win nsis -c.compression=store -c.electronDist=node_modules/electron/dist",
     "dist": "electron-builder --win nsis"
   },
   "dependencies": {
@@ -19,6 +21,10 @@
     "electron-builder": "^26.0.12"
   },
   "build": {
+    "npmRebuild": false,
+    "electronDownload": {
+      "mirror": "https://npmmirror.com/mirrors/electron/"
+    },
     "appId": "com.exceltool.warehousesummary",
     "productName": "仓配订单汇总工具",
     "artifactName": "仓配订单汇总工具-${version}-${arch}.${ext}",

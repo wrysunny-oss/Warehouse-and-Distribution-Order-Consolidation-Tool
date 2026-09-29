@@ -7,6 +7,8 @@ const ExcelJS = require('exceljs');
 const { cleanText, orderHeader, validateTable, getBrands, collectMappingRows, aggregate } = require('./core');
 const { detailFormulaValues, summaryFormulaValues } = require('./excel-formulas');
 const { validateDeliveryTable, analyzeDeliveryData, buildProductIndex, cleanCode, buildDeliveryExports } = require('./delivery-note');
+const { addBackfillTask, analyzeBackfillFile, writeBackfillFiles } = require('./backfill');
+const { analyzeInventoryUpdate, inspectWorkbook, writeInventoryUpdate } = require('./inventory-update');
 
 let mainWindow;
 const smokeTest = process.env.EXCEL_TOOL_SMOKE_TEST === '1';
@@ -93,6 +95,7 @@ function availableFilePath(directory, fileName) {
   }
   return candidate;
 }
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -117,12 +120,17 @@ function createWindow() {
       if (smokeWidth >= 1100) mainWindow.setSize(smokeWidth, 900);
       const result = await mainWindow.webContents.executeJavaScript(`(() => {
         if ('${targetView}' === 'delivery') document.getElementById('deliveryTab')?.click();
+        if ('${targetView}' === 'inventory') document.getElementById('inventoryTab')?.click();
+        if ('${targetView}' === 'backfill') document.getElementById('backfillDialog')?.showModal();
         return {
           title: document.title,
           hasImport: Boolean(document.getElementById('table2Btn')),
           hasExport: Boolean(document.getElementById('exportBtn')),
           hasDelivery: Boolean(document.getElementById('deliveryTab')),
-          deliveryVisible: !document.getElementById('deliveryView')?.classList.contains('hidden')
+          hasInventoryUpdate: Boolean(document.getElementById('inventoryTab')),
+          deliveryVisible: !document.getElementById('deliveryView')?.classList.contains('hidden'),
+          inventoryVisible: !document.getElementById('inventoryView')?.classList.contains('hidden'),
+          backfillVisible: Boolean(document.getElementById('backfillDialog')?.open)
         };
       })()`);
       console.log('SMOKE_TEST', JSON.stringify(result));
@@ -235,6 +243,99 @@ ipcMain.handle('summary:analyze', (_event, payload) => {
 });
 
 ipcMain.handle('summary:compute', (_event, payload) => aggregate(payload));
+ipcMain.handle('inventory-update:open', async (_event, type) => {
+  const isTable3 = type === 'table3';
+  const isTransit = type === 'transit';
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: isTable3 ? '选择需要更新的旧表三' : isTransit ? '选择库存在途明细' : '选择实时库存表',
+    properties: isTable3 || isTransit ? ['openFile'] : ['openFile', 'multiSelections'],
+    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx', 'xlsm'] }]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  const files = await Promise.all(result.filePaths.map(async (filePath) => ({
+    ...(await inspectWorkbook(filePath, isTable3 ? 'table3' : isTransit ? 'transit' : 'inventory')),
+    fileName: path.basename(filePath)
+  })));
+  return isTable3 || isTransit ? files[0] : files;
+});
+ipcMain.handle('inventory-update:analyze', async (_event, payload) => {
+  const table3Path = cleanText(payload?.table3Path);
+  const inventoryPaths = [...new Set((payload?.inventoryPaths || []).map(cleanText).filter(Boolean))];
+  const transitPath = cleanText(payload?.transitPath);
+  if (!table3Path || !fs.existsSync(table3Path)) throw new Error('旧表三不存在，请重新选择文件。');
+  if (!inventoryPaths.length && !transitPath) throw new Error('实时库存和库存在途明细请至少选择一种。');
+  if (inventoryPaths.some((filePath) => !fs.existsSync(filePath))) throw new Error('部分实时库存表不存在，请重新选择文件。');
+  if (transitPath && !fs.existsSync(transitPath)) throw new Error('库存在途明细不存在，请重新选择文件。');
+  return analyzeInventoryUpdate(table3Path, inventoryPaths, transitPath);
+});
+ipcMain.handle('inventory-update:export', async (_event, payload) => {
+  const table3Path = cleanText(payload?.table3Path);
+  const inventoryPaths = [...new Set((payload?.inventoryPaths || []).map(cleanText).filter(Boolean))];
+  const transitPath = cleanText(payload?.transitPath);
+  if (!table3Path || !fs.existsSync(table3Path)) throw new Error('旧表三不存在，请重新选择文件。');
+  if (!inventoryPaths.length && !transitPath) throw new Error('实时库存和库存在途明细请至少选择一种。');
+  if (inventoryPaths.some((filePath) => !fs.existsSync(filePath))) throw new Error('部分实时库存表不存在，请重新选择文件。');
+  if (transitPath && !fs.existsSync(transitPath)) throw new Error('库存在途明细不存在，请重新选择文件。');
+  const extension = path.extname(table3Path) || '.xlsx';
+  const baseName = path.basename(table3Path, extension);
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: transitPath ? '导出已更新库存和在途订单的表三' : '导出已更新良品可用的表三',
+    defaultPath: `${baseName}-${transitPath ? '库存及在途已更新' : '良品可用已更新'}${extension}`,
+    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }]
+  });
+  if (result.canceled || !result.filePath) return null;
+  const analysis = await writeInventoryUpdate(table3Path, inventoryPaths, result.filePath, transitPath);
+  return { filePath: result.filePath, ...analysis };
+});
+ipcMain.handle('excel:backfill-open', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择已修改实际订单安排的表三',
+    properties: ['openFile'],
+    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }]
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const filePath = result.filePaths[0];
+  let sourceFilePath = '';
+  let analysis = await analyzeBackfillFile(filePath);
+  if (analysis.needsExternalSource) {
+    const sourceResult = await dialog.showOpenDialog(mainWindow, {
+      title: '旧版表三：选择对应的订单原表',
+      properties: ['openFile'],
+      filters: [{ name: 'Excel 工作簿', extensions: ['xlsx', 'xlsm'] }]
+    });
+    if (sourceResult.canceled || !sourceResult.filePaths[0]) return null;
+    sourceFilePath = sourceResult.filePaths[0];
+    analysis = await analyzeBackfillFile(filePath, sourceFilePath);
+  }
+  return {
+    filePath,
+    fileName: path.basename(filePath),
+    sourceFilePath,
+    legacy: analysis.legacy,
+    taskId: analysis.task.taskId,
+    createdAt: analysis.task.createdAt,
+    brand: analysis.task.brand,
+    sourceFileName: analysis.task.sourceFileName,
+    warehouses: analysis.plan.warehouses,
+    readyWarehouseCount: analysis.plan.readyWarehouses.length,
+    errorCount: analysis.plan.errorCount
+  };
+});
+ipcMain.handle('excel:backfill-export', async (_event, payload) => {
+  const filePath = cleanText(payload?.filePath);
+  const sourceFilePath = cleanText(payload?.sourceFilePath);
+  if (!filePath || !fs.existsSync(filePath)) throw new Error('回传表三不存在，请重新选择文件。');
+  if (sourceFilePath && !fs.existsSync(sourceFilePath)) throw new Error('订单原表不存在，请重新选择文件。');
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择分仓补货单保存文件夹',
+    properties: ['openDirectory', 'createDirectory']
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const directory = result.filePaths[0];
+  const output = await writeBackfillFiles(filePath, directory, sourceFilePath);
+  if (!output.files.length) throw new Error('没有通过校验的仓库可以导出，请先修正表三中的异常数量。');
+  return { directory, ...output };
+});
 ipcMain.handle('excel:export', async (_event, payload) => {
   const safeBrand = cleanText(payload.brand || '汇总').replace(/[\\/*?:\[\]]/g, '_').slice(0, 31) || '汇总';
   const result = await dialog.showSaveDialog(mainWindow, {
@@ -307,8 +408,9 @@ ipcMain.handle('excel:export', async (_event, payload) => {
       cell.border = { bottom: { style: 'hair', color: { argb: 'FFD9E0DC' } } };
     });
   });
+  const backfillTask = addBackfillTask(workbook, payload);
   await workbook.xlsx.writeFile(result.filePath);
-  return result.filePath;
+  return { filePath: result.filePath, backfillTask };
 });
 
 app.whenReady().then(() => {
