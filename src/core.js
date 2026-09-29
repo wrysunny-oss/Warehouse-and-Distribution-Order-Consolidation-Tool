@@ -17,6 +17,8 @@ const KNOWN_PRODUCTS = new Map([
   ['国宝桥米稻花翁珍珠香米2.5kg大米粳米东北米 2.5kg', [2.5, 1]],
   ['国宝桥米稻花翁珍珠香米东北大米煮粥圆粒粳米5KG真空包装10斤', [5, 1]]
 ]);
+const FIXED_PRODUCTS = [...KNOWN_PRODUCTS.keys()];
+
 
 function cleanText(value) {
   return String(value ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
@@ -30,6 +32,29 @@ function numberValue(value) {
 
 function normalizedProduct(value) {
   return cleanText(value).toLowerCase();
+}
+
+function dedupeProducts(rows, brand) {
+  const selectedBrand = cleanText(brand);
+  const seen = new Set();
+  const products = [];
+  for (const row of rows || []) {
+    if (selectedBrand && cleanText(row['品牌名称']) !== selectedBrand) continue;
+    const product = cleanText(row['货品名称']);
+    const token = normalizedProduct(product);
+    if (!product || seen.has(token)) continue;
+    seen.add(token);
+    products.push(product);
+  }
+  return products;
+}
+
+function productCatalogForBrand({ table1Rows = [], table2Rows = [], brand, configuredProducts = [] }) {
+  const configuredRows = (configuredProducts || []).map((product) => ({ '货品名称': product }));
+  const configured = dedupeProducts(configuredRows, '');
+  if (configured.length) return configured;
+  const fromTable1 = dedupeProducts(table1Rows, brand);
+  return fromTable1.length ? fromTable1 : dedupeProducts(table2Rows, brand);
 }
 
 function table1Warehouse(row) {
@@ -111,7 +136,7 @@ function collectMappingRows(table1Rows, brand, targets, currentMapping = {}) {
     .sort((a, b) => a.source.localeCompare(b.source, 'zh-CN'));
 }
 
-function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actualOrders = {} }) {
+function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actualOrders = {}, configuredProducts = [] }) {
   const selectedBrand = cleanText(brand);
   const brandedInventoryRows = table2Rows.filter((row) => cleanText(row['品牌名称']) === selectedBrand);
   const hasWarehouseRole = brandedInventoryRows.some((row) => cleanText(row['仓角色名称']));
@@ -119,11 +144,10 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
     ? brandedInventoryRows.filter((row) => ['RDC', 'MRDC'].includes(cleanText(row['仓角色名称']).toUpperCase()))
     : brandedInventoryRows;
   const orderRows = table1Rows.filter((row) => cleanText(row['品牌名称']) === selectedBrand);
+  const hasOrderLimit = orderRows.length > 0;
   const warehouses = [...new Set(inventoryRows.map((row) => cleanText(row['物理仓名称'])).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'zh-CN'));
-  const productSource = orderRows.length ? orderRows : inventoryRows;
-  const products = [...new Set(productSource.map((row) => cleanText(row['货品名称'])).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  const products = productCatalogForBrand({ table1Rows, table2Rows, brand: selectedBrand, configuredProducts });
 
   const inventory = new Map();
   for (const source of inventoryRows) {
@@ -138,26 +162,40 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
   const outputGroups = new Map();
 
   if (orderRows.length) {
-    orderRows.forEach((source, sourceIndex) => {
+    const productCatalog = new Map(products.map((product) => [normalizedProduct(product), { product, boxSpec: Math.max(1, parseBoxSpec(product)) }]));
+    const warehouseTargets = new Map();
+    const orderTotals = new Map();
+    for (const source of orderRows) {
       const sourceWarehouse = table1Warehouse(source);
       const product = cleanText(source['货品名称']);
-      if (!sourceWarehouse || !product) return;
+      if (!sourceWarehouse || !product) continue;
+      const productToken = normalizedProduct(product);
       const amount = table1Order(source);
       const targetWarehouse = mapping[sourceWarehouse] || suggestWarehouse(sourceWarehouse, warehouses);
       if (!targetWarehouse) {
         if (amount) unresolved.set(sourceWarehouse, (unresolved.get(sourceWarehouse) || 0) + amount);
-        return;
+        continue;
       }
-      if (!outputGroups.has(sourceWarehouse)) outputGroups.set(sourceWarehouse, []);
-      outputGroups.get(sourceWarehouse).push({
-        id: `${sourceWarehouse}\u0000${normalizedProduct(product)}\u0000${sourceIndex}`,
+      warehouseTargets.set(sourceWarehouse, targetWarehouse);
+      const catalogItem = productCatalog.get(productToken);
+      if (!catalogItem) continue;
+      const sourceBoxSpec = numberValue(source['箱规']);
+      if (sourceBoxSpec > 0) catalogItem.boxSpec = Math.max(1, sourceBoxSpec);
+      const orderKey = `${sourceWarehouse}\u0000${productToken}`;
+      orderTotals.set(orderKey, (orderTotals.get(orderKey) || 0) + amount);
+    }
+
+    const catalog = products.map((product) => [normalizedProduct(product), productCatalog.get(normalizedProduct(product))]);
+    for (const [sourceWarehouse, targetWarehouse] of [...warehouseTargets].sort((a, b) => a[0].localeCompare(b[0], 'zh-CN'))) {
+      outputGroups.set(sourceWarehouse, catalog.map(([productToken, item]) => ({
+        id: `${sourceWarehouse}\u0000${productToken}`,
         warehouse: sourceWarehouse,
         inventoryWarehouse: targetWarehouse,
-        product,
-        systemOrder: amount,
-        boxSpec: Math.max(1, numberValue(source['箱规']) || parseBoxSpec(product))
-      });
-    });
+        product: item.product,
+        systemOrder: orderTotals.get(`${sourceWarehouse}\u0000${productToken}`) || 0,
+        boxSpec: item.boxSpec
+      })));
+    }
   } else {
     for (const warehouse of warehouses) {
       outputGroups.set(warehouse, products.map((product) => ({
@@ -194,11 +232,11 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
       const replenishmentNeed = Math.max(0, targetStock - availableGood);
       const roundedNeed = replenishmentNeed > 0 ? Math.ceil(replenishmentNeed / boxSpec) * boxSpec : 0;
       const orderCapacity = Math.floor(systemOrder / boxSpec) * boxSpec;
-      const suggestedActual = Math.min(orderCapacity, roundedNeed);
+      const suggestedActual = hasOrderLimit ? Math.min(orderCapacity, roundedNeed) : roundedNeed;
       const hasOverride = Object.prototype.hasOwnProperty.call(actualOrders, id);
       const overridden = Math.floor(Math.max(0, numberValue(actualOrders[id])) / boxSpec) * boxSpec;
-      const actualOrder = hasOverride ? Math.min(orderCapacity, overridden) : suggestedActual;
-      const manualRequest = systemOrder === 0 ? roundedNeed : Math.max(0, roundedNeed - orderCapacity);
+      const actualOrder = hasOverride ? (hasOrderLimit ? Math.min(orderCapacity, overridden) : overridden) : suggestedActual;
+      const manualRequest = hasOrderLimit ? (systemOrder === 0 ? roundedNeed : Math.max(0, roundedNeed - orderCapacity)) : 0;
       const row = {
         id,
         warehouse,
@@ -220,6 +258,7 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
         replenishmentNeed,
         roundedNeed,
         systemOrder,
+        hasOrderLimit,
         weight: systemOrder * spec / 1000,
         suggestedActual,
         actualOrder,
@@ -263,6 +302,6 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
 }
 
 module.exports = {
-  TABLE1_NEW_REQUIRED, TABLE1_OLD_REQUIRED, TABLE2_REQUIRED, cleanText, numberValue, parseSpec, parseBoxSpec,
-  orderHeader, validateTable, getBrands, suggestWarehouse, collectMappingRows, aggregate
+  TABLE1_NEW_REQUIRED, TABLE1_OLD_REQUIRED, TABLE2_REQUIRED, FIXED_PRODUCTS, cleanText, numberValue, parseSpec, parseBoxSpec,
+  orderHeader, validateTable, getBrands, suggestWarehouse, collectMappingRows, productCatalogForBrand, aggregate
 };

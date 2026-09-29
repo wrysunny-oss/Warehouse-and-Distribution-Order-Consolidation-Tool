@@ -1,6 +1,6 @@
 {
   "name": "excel-warehouse-summary",
-  "version": "1.2.3",
+  "version": "1.5.1",
   "description": "仓配订单汇总 Electron 桌面工具",
   "main": "src/main.js",
   "author": "Excel Tool",

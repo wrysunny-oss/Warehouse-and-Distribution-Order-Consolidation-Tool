@@ -13,6 +13,14 @@ test('导出明细保留重量、实际订单安排和实际重量公式', () =>
   assert.equal(formulas.actualWeight.formula, 'Q2*E2/1000');
 });
 
+test('仅表二导出公式不受系统订单为零限制', () => {
+  const formulas = detailFormulaValues(3, { weight: 0, actualOrder: 40, actualWeight: 0.2, hasOrderLimit: false });
+  assert.equal(formulas.actualOrder.formula.startsWith('ROUNDUP(MAX(0,'), true);
+  assert.doesNotMatch(formulas.actualOrder.formula, /^MIN\(/);
+  assert.match(formulas.actualOrder.formula, /N3\*0\.5/);
+  assert.equal(formulas.actualOrder.result, 40);
+});
+
 test('导出仓库汇总保留SUM公式且实际订单安排不取整', () => {
   const formulas = summaryFormulaValues(2, 8, { systemOrder: 100, weight: 1, actualOrder: 318, actualWeight: 3.18 });
   assert.equal(formulas.systemOrder.formula, 'SUM(O2:O8)');

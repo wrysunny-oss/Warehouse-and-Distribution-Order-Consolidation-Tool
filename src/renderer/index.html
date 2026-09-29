@@ -10,17 +10,25 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div>
+      <div class="product-title">
         <h1>仓配订单汇总</h1>
-        <p>库存模式与完整订单模式</p>
+        <p>补货汇总与送货单生成</p>
       </div>
-      <div class="top-actions">
+      <nav class="workflow-switch" aria-label="功能切换">
+        <button id="summaryTab" class="workflow-tab active" type="button" aria-current="page">补货汇总</button>
+        <button id="deliveryTab" class="workflow-tab" type="button">送货单生成</button>
+      </nav>
+      <div id="summaryTopActions" class="top-actions">
         <span id="modeBadge" class="mode-badge">等待导入表二</span>
         <button id="exportBtn" class="button primary" disabled>导出表三</button>
       </div>
+      <div id="deliveryTopActions" class="top-actions hidden">
+        <span id="deliveryModeBadge" class="mode-badge">等待导入文件</span>
+        <button id="generateDeliveryBtn" class="button primary" disabled>生成送货单</button>
+      </div>
     </header>
 
-    <main>
+    <main id="summaryView" class="view">
       <section class="control-strip" aria-label="数据导入">
         <div class="file-slot required" id="table2Slot">
           <div class="slot-copy">
@@ -42,7 +50,10 @@
           <label for="brandSelect">汇总品牌</label>
           <select id="brandSelect" disabled><option>请先导入表二</option></select>
         </div>
-        <button id="mappingBtn" class="button quiet" disabled>仓库映射 <span id="mappingCount"></span></button>
+        <div class="summary-config-actions">
+          <button id="productCatalogBtn" class="button quiet" disabled>商品清单 <span id="productCatalogCount"></span></button>
+          <button id="mappingBtn" class="button quiet" disabled>仓库映射 <span id="mappingCount"></span></button>
+        </div>
       </section>
 
       <section id="notice" class="notice hidden" role="status"></section>
@@ -89,6 +100,116 @@
         </div>
       </section>
     </main>
+
+    <main id="deliveryView" class="view hidden">
+      <section class="delivery-intro">
+        <div>
+          <h2>生成送货单</h2>
+          <p>导入商品主数据和入库明细，按品牌拆分文件、按完整仓库名称建立工作表。</p>
+        </div>
+        <div id="deliveryReadiness" class="readiness"><span class="readiness-dot"></span><span>等待两份源文件</span></div>
+      </section>
+
+      <section class="delivery-import-grid" aria-label="送货单数据导入">
+        <div class="file-slot required" id="productSlot">
+          <div class="slot-copy">
+            <span class="slot-kicker">必需</span>
+            <strong>product · 商品主数据</strong>
+            <small id="productMeta">用于品牌、条码和商品简称匹配</small>
+          </div>
+          <button id="productBtn" class="button secondary">选择文件</button>
+        </div>
+        <div class="file-slot required" id="receiptSlot">
+          <div class="slot-copy">
+            <span class="slot-kicker">必需</span>
+            <strong>ReceiptNote · 入库明细</strong>
+            <small id="receiptMeta">用于仓库、物流宝单号、包数和箱规</small>
+          </div>
+          <button id="receiptBtn" class="button secondary">选择文件</button>
+        </div>
+      </section>
+
+      <section id="deliveryNotice" class="notice hidden" role="status"></section>
+
+      <section class="workspace delivery-settings">
+        <div class="workspace-head">
+          <div>
+            <h2>品牌与全局配置</h2>
+            <p>每个品牌单独生成一个 Excel；供应商名称会保存在本机。</p>
+          </div>
+          <span id="deliverySourceSummary" class="section-summary">尚未分析数据</span>
+        </div>
+        <div class="settings-body">
+          <fieldset class="brand-fieldset">
+            <legend>生成品牌</legend>
+            <div id="deliveryBrands" class="brand-options"><span class="muted-copy">导入两份文件后显示品牌</span></div>
+          </fieldset>
+          <fieldset class="brand-fieldset">
+            <legend>生成仓库</legend>
+            <div id="deliveryWarehouses" class="brand-options"><span class="muted-copy">导入两份文件后显示仓库</span></div>
+          </fieldset>
+          <div class="delivery-form-grid">
+            <label class="field">
+              <span>供应商名称</span>
+              <input id="supplierNameInput" type="text" value="湖北国宝桥米有限公司" autocomplete="organization">
+              <small>全局配置，自动保存</small>
+            </label>
+            <label class="field">
+              <span>保质期（天）</span>
+              <input id="shelfLifeInput" type="number" min="1" step="1" value="360">
+              <small>所有生成明细统一使用</small>
+            </label>
+            <label class="field">
+              <span>联系方式</span>
+              <input id="contactInput" type="text" value="17771571056" inputmode="tel">
+              <small>所有生成明细统一使用</small>
+            </label>
+          </div>
+          <label class="output-option">
+            <input id="splitByWarehouseInput" type="checkbox">
+            <span><strong>按仓库拆分为多个 Excel</strong><small>勾选后每个仓库生成一个文件；不勾选时每个品牌生成一个多工作表文件。</small></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="workspace production-workspace">
+        <div class="workspace-head production-head">
+          <div>
+            <h2>商品生产日期</h2>
+            <p>生产日期选填；可通过商品名联想筛选，单选或多选商品后批量设置或清除。</p>
+          </div>
+          <div class="date-progress"><strong id="datedProductCount">0 / 0</strong><span>已填写（选填）</span></div>
+        </div>
+        <div class="product-toolbar">
+          <label class="product-search">
+            <span>联想搜索</span>
+            <input id="deliveryProductSearch" type="search" list="productSuggestions" placeholder="输入商品简称或条码" disabled>
+            <datalist id="productSuggestions"></datalist>
+          </label>
+          <button id="selectVisibleProductsBtn" class="button quiet" type="button" disabled>选择筛选结果</button>
+          <button id="clearProductSelectionBtn" class="button quiet" type="button" disabled>清空选择</button>
+          <label class="date-apply-field">
+            <span>生产日期</span>
+            <input id="productionDateInput" type="date" disabled>
+          </label>
+          <button id="applyProductionDateBtn" class="button secondary" type="button" disabled>应用/清除日期</button>
+        </div>
+        <div class="product-list-head" aria-hidden="true">
+          <span>选择</span><span>品牌</span><span>商品名称</span><span>条码</span><span>生产日期</span>
+        </div>
+        <div id="deliveryProductList" class="product-list">
+          <div class="product-list-empty">导入两份源文件后，在这里配置生产日期。</div>
+        </div>
+        <footer class="delivery-footer">
+          <div class="delivery-metrics" id="deliveryMetrics">
+            <span><strong>0</strong> 个品牌</span>
+            <span><strong>0</strong> 个仓库</span>
+            <span><strong>0</strong> 条明细</span>
+          </div>
+          <p id="deliveryExportHint">完成文件导入和生产日期配置后即可生成。</p>
+        </footer>
+      </section>
+    </main>
   </div>
 
   <dialog id="mappingDialog">
@@ -105,6 +226,28 @@
       <footer class="dialog-foot">
         <span>映射会保存在本机，下次自动使用。</span>
         <button id="saveMappingBtn" type="button" class="button primary">保存并重新汇总</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="productCatalogDialog" class="catalog-dialog">
+    <form method="dialog" class="dialog-shell catalog-dialog-shell">
+      <header class="dialog-head">
+        <div><h2>配置商品清单</h2><p><strong id="productCatalogBrand"></strong> · 一行一个商品，排列顺序就是表三导出顺序。</p></div>
+        <button class="icon-button" value="cancel" aria-label="关闭">×</button>
+      </header>
+      <div class="catalog-editor">
+        <label for="productCatalogTextarea">商品名称</label>
+        <textarea id="productCatalogTextarea" spellcheck="false" aria-describedby="productCatalogHelp"></textarea>
+        <p id="productCatalogHelp">默认从当前品牌的表一订单中去重生成；没有表一时从表二生成。重复名称保存时会自动去除。</p>
+      </div>
+      <footer class="dialog-foot catalog-dialog-foot">
+        <span id="productCatalogStatus"></span>
+        <div class="dialog-actions">
+          <button id="restoreProductCatalogBtn" type="button" class="button secondary">恢复默认</button>
+          <button value="cancel" class="button quiet">取消</button>
+          <button id="saveProductCatalogBtn" type="button" class="button primary">保存并重新汇总</button>
+        </div>
       </footer>
     </form>
   </dialog>

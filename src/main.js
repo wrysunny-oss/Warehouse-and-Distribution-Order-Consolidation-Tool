@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const ExcelJS = require('exceljs');
 const { cleanText, orderHeader, validateTable, getBrands, collectMappingRows, aggregate } = require('./core');
 const { detailFormulaValues, summaryFormulaValues } = require('./excel-formulas');
+const { validateDeliveryTable, analyzeDeliveryData, buildProductIndex, cleanCode, buildDeliveryExports } = require('./delivery-note');
 
 let mainWindow;
 const smokeTest = process.env.EXCEL_TOOL_SMOKE_TEST === '1';
@@ -62,6 +63,36 @@ async function readWorkbook(filePath, type) {
   return selected;
 }
 
+async function readDeliveryWorkbook(filePath, type) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+  const candidates = workbook.worksheets.map(sheetPayload);
+  const selected = candidates.find((candidate) => validateDeliveryTable(candidate, type).valid);
+  if (!selected) {
+    const validation = validateDeliveryTable(candidates[0] || { headers: [] }, type);
+    const label = type === 'product' ? 'product 商品表' : 'ReceiptNote 入库明细';
+    throw new Error(`没有找到符合 ${label} 格式的工作表。缺少字段：${validation.missing.join('、')}`);
+  }
+  selected.filePath = filePath;
+  selected.fileName = path.basename(filePath);
+  return selected;
+}
+
+function safeFilePart(value) {
+  return cleanText(value).replace(/[\\/:*?"<>|]/g, '_') || '未命名';
+}
+
+function availableFilePath(directory, fileName) {
+  const extension = path.extname(fileName);
+  const base = path.basename(fileName, extension);
+  let candidate = path.join(directory, fileName);
+  let index = 2;
+  while (fs.existsSync(candidate)) {
+    candidate = path.join(directory, `${base}-${index}${extension}`);
+    index += 1;
+  }
+  return candidate;
+}
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -81,11 +112,25 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   if (smokeTest) {
     mainWindow.webContents.once('did-finish-load', async () => {
-      const result = await mainWindow.webContents.executeJavaScript("({ title: document.title, hasImport: Boolean(document.getElementById('table2Btn')), hasExport: Boolean(document.getElementById('exportBtn')) })");
+      const targetView = process.env.EXCEL_TOOL_SMOKE_VIEW || 'summary';
+      const smokeWidth = Number(process.env.EXCEL_TOOL_SMOKE_WIDTH || 0);
+      if (smokeWidth >= 1100) mainWindow.setSize(smokeWidth, 900);
+      const result = await mainWindow.webContents.executeJavaScript(`(() => {
+        if ('${targetView}' === 'delivery') document.getElementById('deliveryTab')?.click();
+        return {
+          title: document.title,
+          hasImport: Boolean(document.getElementById('table2Btn')),
+          hasExport: Boolean(document.getElementById('exportBtn')),
+          hasDelivery: Boolean(document.getElementById('deliveryTab')),
+          deliveryVisible: !document.getElementById('deliveryView')?.classList.contains('hidden')
+        };
+      })()`);
       console.log('SMOKE_TEST', JSON.stringify(result));
       if (process.env.EXCEL_TOOL_SMOKE_SCREENSHOT === '1') {
+        await new Promise((resolve) => setTimeout(resolve, 180));
         const image = await mainWindow.webContents.capturePage();
-        fs.writeFileSync(path.join(process.cwd(), 'smoke-test.png'), image.toPNG());
+        const screenshotPath = process.env.EXCEL_TOOL_SMOKE_SCREENSHOT_PATH || path.join(process.cwd(), 'smoke-test.png');
+        fs.writeFileSync(screenshotPath, image.toPNG());
       }
       app.quit();
     });
@@ -102,6 +147,86 @@ ipcMain.handle('excel:open', async (_event, type) => {
   return readWorkbook(result.filePaths[0], type);
 });
 
+ipcMain.handle('delivery:open', async (_event, type) => {
+  const isProduct = type === 'product';
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: isProduct ? '选择 product 商品表' : '选择 ReceiptNote 入库明细',
+    properties: ['openFile'],
+    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx', 'xlsm'] }]
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return readDeliveryWorkbook(result.filePaths[0], isProduct ? 'product' : 'receipt');
+});
+
+ipcMain.handle('delivery:analyze', (_event, payload) => analyzeDeliveryData(payload));
+
+ipcMain.handle('delivery:export', async (_event, payload) => {
+  const selectedBrands = [...new Set((payload.brands || []).map(cleanText).filter(Boolean))];
+  if (!selectedBrands.length) throw new Error('请至少选择一个品牌。');
+  if (!cleanText(payload.supplierName)) throw new Error('请填写供应商名称。');
+  const shelfLife = Number(cleanText(payload.shelfLife));
+  if (!Number.isInteger(shelfLife) || shelfLife <= 0) throw new Error('保质期必须填写正整数天数。');
+  if (!cleanText(payload.contact)) throw new Error('请填写联系方式。');
+
+  const selectedWarehouses = [...new Set((payload.warehouses || []).map(cleanText).filter(Boolean))];
+  if (!selectedWarehouses.length) throw new Error('请至少选择一个仓库。');
+  const selectedReceiptRows = (payload.receiptRows || []).filter((row) => selectedWarehouses.includes(cleanText(row['仓库名称'])));
+  const analysis = analyzeDeliveryData({ productRows: payload.productRows || [], receiptRows: selectedReceiptRows });
+  const selectedBarcodes = new Set(selectedReceiptRows.map((row) => cleanCode(row['条形码'])));
+  const selectedConflicts = analysis.barcodeConflicts.filter((item) => selectedBarcodes.has(item.barcode) && (item.brands || []).some((brand) => selectedBrands.includes(brand)));
+  if (selectedConflicts.length) throw new Error(`选中品牌中有 ${selectedConflicts.length} 个条码对应多个商品，请先修复。`);
+  const unmatched = analysis.unmatched.filter((item) => selectedBrands.includes(item.brand));
+  if (unmatched.length) throw new Error(`选中品牌中有 ${unmatched.length} 条商品无法匹配 product 表，请先补充商品主数据。`);
+  const deliveryProductIndex = buildProductIndex(payload.productRows || []).byBarcode;
+  const invalidBoxRows = selectedReceiptRows.filter((row) => {
+    const product = deliveryProductIndex.get(cleanCode(row['条形码']));
+    const raw = cleanText(row['采购规格(箱规数)']);
+    const value = Number(raw);
+    return product && selectedBrands.includes(product.brand) && (!raw || !Number.isFinite(value) || value <= 0);
+  });
+  if (invalidBoxRows.length) throw new Error(`选中品牌中有 ${invalidBoxRows.length} 条明细的箱规为空、非数字或小于等于 0。`);
+  const invalidPackageRows = selectedReceiptRows.filter((row) => {
+    const product = deliveryProductIndex.get(cleanCode(row['条形码']));
+    const raw = cleanText(row['商品实际发货数量']);
+    const value = Number(raw);
+    return product && selectedBrands.includes(product.brand) && (!raw || !Number.isFinite(value) || value < 0);
+  });
+  if (invalidPackageRows.length) throw new Error(`选中品牌中有 ${invalidPackageRows.length} 条明细的实际发货数量为空、非数字或小于 0。`);
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择 DeliveryNote 保存文件夹',
+    properties: ['openDirectory', 'createDirectory']
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const directory = result.filePaths[0];
+  const receiptRows = selectedReceiptRows;
+  const buildOptions = {
+    templatePath: path.join(__dirname, 'templates', 'DeliveryNote.xlsx'),
+    productRows: payload.productRows || [],
+    productionDates: payload.productionDates || {},
+    shelfLife: payload.shelfLife,
+    contact: payload.contact,
+    supplierName: payload.supplierName
+  };
+  const builds = await buildDeliveryExports({ ...buildOptions, receiptRows, brands: selectedBrands, splitByWarehouse: Boolean(payload.splitByWarehouse) });
+  if (!builds.length) throw new Error('选中的品牌在 ReceiptNote 中没有可生成的明细。');
+
+  const files = [];
+  for (const build of builds) {
+    const warehouseSuffix = payload.splitByWarehouse && build.warehouse ? '-' + safeFilePart(build.warehouse) : '';
+    const filePath = availableFilePath(directory, 'DeliveryNote-' + safeFilePart(build.brand) + warehouseSuffix + '.xlsx');
+    await build.workbook.xlsx.writeFile(filePath);
+    files.push({
+      brand: build.brand,
+      warehouse: build.warehouse || '',
+      filePath,
+      warehouseCount: build.warehouseCount,
+      detailRows: build.totalRows,
+      fractionalBoxes: build.fractionalBoxes
+    });
+  }
+  return { directory, files, splitByWarehouse: Boolean(payload.splitByWarehouse) };
+});
 ipcMain.handle('summary:analyze', (_event, payload) => {
   const brands = getBrands(payload.table2Rows || []);
   const inventory = aggregate({ table2Rows: payload.table2Rows || [], brand: payload.brand || brands[0] || '' });
