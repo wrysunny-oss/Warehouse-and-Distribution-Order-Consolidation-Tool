@@ -11,9 +11,15 @@ const BACKFILL_CHUNK_SIZE = 30000;
 function cellValue(cell) {
   const value = cell.value;
   if (value && typeof value === 'object') {
-    if ('result' in value) return value.result ?? '';
+    if ('result' in value) {
+      const r = value.result;
+      if (r && typeof r === 'object' && 'error' in r) return r.error;
+      return r ?? '';
+    }
     if ('text' in value) return value.text ?? '';
     if ('richText' in value) return value.richText.map((item) => item.text).join('');
+    if ('error' in value) return value.error ?? '';
+    if ('formula' in value || 'sharedFormula' in value) return '';
   }
   if (value instanceof Date) return value.toISOString();
   return value ?? '';
@@ -21,8 +27,15 @@ function cellValue(cell) {
 
 function actualOrderCellValue(cell) {
   const value = cell.value;
-  if (value && typeof value === 'object' && 'formula' in value && (value.result === undefined || value.result === null || value.result === '')) {
-    return 0;
+  if (value && typeof value === 'object') {
+    if ('result' in value && value.result !== undefined && value.result !== null && value.result !== '') {
+      const r = value.result;
+      if (r && typeof r === 'object' && 'error' in r) return r.error;
+      return r;
+    }
+    if ('formula' in value || 'sharedFormula' in value) {
+      return 0;
+    }
   }
   return cellValue(cell);
 }
@@ -64,6 +77,7 @@ function groupKey(warehouse, product) {
 function parseActualOrder(value) {
   const raw = cleanText(value);
   if (!raw) return { valid: false, value: 0, reason: '实际订单安排为空' };
+  if (raw.startsWith('#')) return { valid: false, value: 0, reason: `公式计算异常：${raw}` };
   const parsed = Number(raw.replace(/,/g, ''));
   if (!Number.isFinite(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
     return { valid: false, value: 0, reason: '实际订单安排必须是大于等于 0 的整数' };

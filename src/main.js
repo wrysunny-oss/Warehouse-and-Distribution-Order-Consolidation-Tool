@@ -1,14 +1,48 @@
 'use strict';
 
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+
+app.disableHardwareAcceleration();
 const path = require('node:path');
 const fs = require('node:fs');
 const ExcelJS = require('exceljs');
-const { cleanText, orderHeader, validateTable, getBrands, collectMappingRows, aggregate } = require('./core');
+const { cleanText, numberValue, parseSpec, orderHeader, validateTable, getBrands, collectMappingRows, aggregate } = require('./core');
 const { detailFormulaValues, summaryFormulaValues } = require('./excel-formulas');
 const { validateDeliveryTable, analyzeDeliveryData, buildProductIndex, cleanCode, buildDeliveryExports } = require('./delivery-note');
 const { addBackfillTask, analyzeBackfillFile, writeBackfillFiles } = require('./backfill');
 const { analyzeInventoryUpdate, inspectWorkbook, writeInventoryUpdate } = require('./inventory-update');
+const {
+  PRESET_FACTORIES,
+  suggestFactory,
+  formatDate,
+  addDays,
+  loadProductCatalog,
+  matchProduct,
+  extractDemandItems,
+  buildDemandWorkbook,
+  parseReceiptNoteForDemand,
+  parseTable3ForDemand
+} = require('./procurement-demand');
+const {
+  loadProductPreset,
+  saveProductPreset,
+  resetProductPreset,
+  importProductPreset
+} = require('./product-preset');
+const {
+  loadWarehousePreset,
+  saveWarehousePreset,
+  resetWarehousePreset,
+  importWarehousePresetFromFile,
+  matchWarehouseFactory
+} = require('./warehouse-preset');
+const {
+  DEFAULT_INVOICE_CONFIG,
+  parseReconciliationFiles,
+  calculateInvoiceSummary,
+  exportInvoiceNotificationWorkbook,
+  formatTodayDate
+} = require('./invoice-summary');
 
 let mainWindow;
 const smokeTest = process.env.EXCEL_TOOL_SMOKE_TEST === '1';
@@ -112,16 +146,20 @@ function createWindow() {
       sandbox: true
     }
   });
+  mainWindow.webContents.on('console-message', (e, level, message, line, sourceId) => { console.log('RENDERER_CONSOLE:', message, 'line:', line ?? e?.lineNumber, 'source:', sourceId ?? e?.sourceId); });
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   if (smokeTest) {
     mainWindow.webContents.once('did-finish-load', async () => {
       const targetView = process.env.EXCEL_TOOL_SMOKE_VIEW || 'summary';
       const smokeWidth = Number(process.env.EXCEL_TOOL_SMOKE_WIDTH || 0);
       if (smokeWidth >= 1100) mainWindow.setSize(smokeWidth, 900);
+      await new Promise((resolve) => setTimeout(resolve, 350));
       const result = await mainWindow.webContents.executeJavaScript(`(() => {
         if ('${targetView}' === 'delivery') document.getElementById('deliveryTab')?.click();
         if ('${targetView}' === 'inventory') document.getElementById('inventoryTab')?.click();
         if ('${targetView}' === 'backfill') document.getElementById('backfillDialog')?.showModal();
+        if ('${targetView}' === 'preset') document.getElementById('manageProductPresetBtn')?.click();
+        if ('${targetView}' === 'whPreset') document.getElementById('manageWarehousePresetBtn')?.click();
         return {
           title: document.title,
           hasImport: Boolean(document.getElementById('table2Btn')),
@@ -130,7 +168,9 @@ function createWindow() {
           hasInventoryUpdate: Boolean(document.getElementById('inventoryTab')),
           deliveryVisible: !document.getElementById('deliveryView')?.classList.contains('hidden'),
           inventoryVisible: !document.getElementById('inventoryView')?.classList.contains('hidden'),
-          backfillVisible: Boolean(document.getElementById('backfillDialog')?.open)
+          backfillVisible: Boolean(document.getElementById('backfillDialog')?.open),
+          presetVisible: Boolean(document.getElementById('productPresetDialog')?.open),
+          whPresetVisible: Boolean(document.getElementById('warehousePresetDialog')?.open)
         };
       })()`);
       console.log('SMOKE_TEST', JSON.stringify(result));
@@ -411,6 +451,234 @@ ipcMain.handle('excel:export', async (_event, payload) => {
   const backfillTask = addBackfillTask(workbook, payload);
   await workbook.xlsx.writeFile(result.filePath);
   return { filePath: result.filePath, backfillTask };
+});
+
+ipcMain.handle('procurement:get-config', async (_event, payload) => {
+  const rows = payload?.rows || [];
+  const warehousePreset = await loadWarehousePreset();
+  const productPreset = await loadProductPreset();
+  const catalog = await loadProductCatalog(productPreset.rows);
+  const warehouseMap = new Map();
+  for (const r of rows) {
+    const wh = cleanText(r.warehouse || r['仓库名称']);
+    const qty = numberValue(r.actualOrder ?? r['实际订单安排'] ?? r.demandQuantity ?? r['需求数量'] ?? r['商品实际发货数量']);
+    if (!wh || qty <= 0) continue;
+
+    const rawBarcode = cleanText(r.barcode || r['条形码'] || r['条码']);
+    const rawProductName = cleanText(r.product || r['货品名称']);
+    const matched = matchProduct(catalog, rawProductName, rawBarcode);
+    const spec = (matched && typeof matched.spec === 'number' && matched.spec > 0)
+      ? matched.spec
+      : (numberValue(r.spec || r['规格'] || r['规格kg']) || (parseSpec(rawProductName)?.spec || 0));
+
+    const inboundDate = cleanText(r.inboundDate || r['预约入库时间'] || '');
+    const brand = cleanText(r.brand || r['品牌名称']);
+    if (!warehouseMap.has(wh)) {
+      warehouseMap.set(wh, {
+        warehouse: wh,
+        products: new Set(),
+        itemCount: 0,
+        totalQty: 0,
+        estimatedWeight: 0,
+        factory: matchWarehouseFactory(wh, warehousePreset.rows, brand),
+        inboundDate
+      });
+    }
+    const stat = warehouseMap.get(wh);
+    const prodKey = matched?.barcode || rawBarcode || rawProductName;
+    if (prodKey) stat.products.add(prodKey);
+    stat.itemCount = stat.products.size || (stat.itemCount + 1);
+    stat.totalQty += qty;
+    stat.estimatedWeight += Math.round(((qty * spec) / 1000) * 10000) / 10000;
+    if (!stat.inboundDate && inboundDate) stat.inboundDate = inboundDate;
+  }
+
+  const today = formatDate(new Date());
+  const defaultPickup = addDays(today, 1);
+  const defaultInbound = addDays(defaultPickup, 1);
+
+  const warehouses = [...warehouseMap.values()].map((item) => ({
+    ...item,
+    pickupDate: item.inboundDate ? addDays(item.inboundDate, -1) : defaultPickup,
+    inboundDate: item.inboundDate || defaultInbound
+  })).sort((a, b) => a.warehouse.localeCompare(b.warehouse, 'zh-CN'));
+
+  const factoryList = [...new Set([
+    '宏禾米厂', '腾三龙米厂', '正点米厂', '青龙米厂', '京山工厂',
+    ...warehousePreset.rows.map((r) => r.factory).filter(Boolean)
+  ])];
+
+  return {
+    warehouses,
+    presetFactories: factoryList,
+    defaultPickupDate: defaultPickup,
+    defaultInboundDate: defaultInbound,
+    defaultTitle: `国宝 采购需求一览表${new Date().getFullYear()}年`
+  };
+});
+
+ipcMain.handle('procurement:import-file', async (_event, type) => {
+  const isReceipt = type === 'receipt';
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: isReceipt ? '选择入库单/发货单明细文件' : '选择已确认的表三文件',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Excel / CSV 文件', extensions: ['xlsx', 'xlsm', 'csv'] }
+    ]
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const filePath = result.filePaths[0];
+  const parsed = isReceipt
+    ? await parseReceiptNoteForDemand(filePath)
+    : await parseTable3ForDemand(filePath);
+  return { filePath, ...parsed };
+});
+
+ipcMain.handle('procurement:export', async (_event, payload) => {
+  const rows = payload?.rows || [];
+  const warehouseConfigs = payload?.warehouseConfigs || {};
+  const title = cleanText(payload?.title) || `国宝 采购需求一览表${new Date().getFullYear()}年`;
+  const defaultFileName = `${title.replace(/[\\/*?:\[\]]/g, '_')}.xlsx`;
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: '导出采购需求一览表',
+    defaultPath: defaultFileName,
+    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }]
+  });
+  if (result.canceled || !result.filePath) return null;
+
+  let catalog;
+  if (Array.isArray(payload?.productRows) && payload.productRows.length) {
+    catalog = await loadProductCatalog(payload.productRows);
+  } else {
+    const preset = await loadProductPreset();
+    catalog = await loadProductCatalog(preset.rows);
+  }
+
+  const items = extractDemandItems({ rows, catalog, warehouseConfigs });
+  if (!items.length) throw new Error('没有需求数量大于 0 的明细可供导出。');
+
+  const workbook = await buildDemandWorkbook({ items, title });
+  await workbook.xlsx.writeFile(result.filePath);
+
+  const warehouseCount = new Set(items.map((i) => i.warehouse)).size;
+  return { filePath: result.filePath, warehouseCount, itemCount: items.length };
+});
+
+ipcMain.handle('product:get-preset', async () => loadProductPreset());
+ipcMain.handle('product:save-preset', async (_event, rows) => saveProductPreset(rows));
+ipcMain.handle('product:reset-preset', async () => resetProductPreset());
+ipcMain.handle('product:import-preset', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择商品主数据文件（将覆盖全局预设）',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Excel 工作簿', extensions: ['xlsx', 'xlsm', 'xls'] }
+    ]
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return importProductPreset(result.filePaths[0]);
+});
+ipcMain.handle('warehouse:get-preset', async () => loadWarehousePreset());
+ipcMain.handle('warehouse:save-preset', async (_event, rows) => saveWarehousePreset(rows));
+ipcMain.handle('warehouse:reset-preset', async () => resetWarehousePreset());
+ipcMain.handle('warehouse:import-preset', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择仓库米厂对应表文件（Excel / CSV 将覆盖全局预设）',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Excel / CSV 文件', extensions: ['xlsx', 'xlsm', 'xls', 'csv'] }
+    ]
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return importWarehousePresetFromFile(result.filePaths[0]);
+});
+
+function getInvoiceConfigPath() {
+  try {
+    return path.join(app.getPath('userData'), 'invoice-config.json');
+  } catch {
+    return path.join(__dirname, '..', 'invoice-config.json');
+  }
+}
+
+function readStoredInvoiceConfig() {
+  const cfgPath = getInvoiceConfigPath();
+  if (fs.existsSync(cfgPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return { ...DEFAULT_INVOICE_CONFIG, ...data };
+    } catch {}
+  }
+  return { ...DEFAULT_INVOICE_CONFIG };
+}
+
+function writeStoredInvoiceConfig(config) {
+  const cfgPath = getInvoiceConfigPath();
+  try {
+    fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+    fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+ipcMain.handle('invoice:open-files', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择天猫超市对账单文件（支持多选）',
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: 'Excel 工作簿', extensions: ['xlsx', 'xlsm', 'xls'] }
+    ]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths;
+});
+
+ipcMain.handle('invoice:parse-files', async (_event, filePaths) => {
+  return parseReconciliationFiles(filePaths);
+});
+
+ipcMain.handle('invoice:calculate', async (_event, payload) => {
+  const rows = payload?.rows || [];
+  const selectedFeeTypes = payload?.selectedFeeTypes || [];
+  const selectedInvoiceDirs = payload?.selectedInvoiceDirs || [];
+  const preset = await loadProductPreset();
+  return calculateInvoiceSummary(rows, {
+    selectedFeeTypes,
+    selectedInvoiceDirs,
+    presetRows: preset.rows
+  });
+});
+
+ipcMain.handle('invoice:export', async (_event, payload) => {
+  const items = payload?.items || [];
+  const config = payload?.config || {};
+  const defaultFileName = cleanText(payload?.defaultFileName) || `开票通知单_${config.date || formatTodayDate()}.xlsx`;
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: '导出开票通知单',
+    defaultPath: defaultFileName,
+    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }]
+  });
+  if (result.canceled || !result.filePath) return null;
+
+  await exportInvoiceNotificationWorkbook({
+    items,
+    config,
+    outputPath: result.filePath
+  });
+
+  return { ok: true, filePath: result.filePath, itemCount: items.length };
+});
+
+ipcMain.handle('invoice:get-config', async () => {
+  return readStoredInvoiceConfig();
+});
+
+ipcMain.handle('invoice:save-config', async (_event, config) => {
+  return writeStoredInvoiceConfig(config);
 });
 
 app.whenReady().then(() => {

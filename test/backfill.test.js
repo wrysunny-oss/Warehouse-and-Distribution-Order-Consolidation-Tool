@@ -46,8 +46,13 @@ test('实际订单只接受大于等于零的整数', () => {
 test('没有缓存结果的实际订单公式按零读取', () => {
   assert.equal(actualOrderCellValue({ value: { formula: 'MIN(A1,B1)' } }), 0);
   assert.equal(actualOrderCellValue({ value: { formula: 'MIN(A1,B1)', result: 30 } }), 30);
+  assert.equal(actualOrderCellValue({ value: { sharedFormula: 'Q14' } }), 0);
+  assert.equal(actualOrderCellValue({ value: { sharedFormula: 'Q14', result: 45 } }), 45);
+  assert.equal(actualOrderCellValue({ value: { formula: '1/0', result: { error: '#DIV/0!' } } }), '#DIV/0!');
   assert.equal(actualOrderCellValue({ value: 0 }), 0);
   assert.equal(actualOrderCellValue({ value: '' }), '');
+  assert.equal(parseActualOrder('#VALUE!').valid, false);
+  assert.match(parseActualOrder('#VALUE!').reason, /公式计算异常/);
 });
 
 test('按仓库和货品生成分配计划并隔离异常仓库', () => {

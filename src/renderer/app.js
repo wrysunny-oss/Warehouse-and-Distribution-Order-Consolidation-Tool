@@ -19,6 +19,13 @@ const state = {
   mappingRows: [],
   mappingDraft: {},
   workflow: 'summary',
+  demand: {
+    rows: [],
+    warehouses: [],
+    presetFactories: [],
+    warehouseConfigs: {},
+    sourceMeta: ''
+  },
   delivery: {
     product: null,
     receipt: null,
@@ -31,15 +38,57 @@ const state = {
     shelfLife: '360',
     contact: '17771571056',
     splitByWarehouse: false
+  },
+  invoice: {
+    filePaths: [],
+    files: [],
+    rawRows: [],
+    availableFeeTypes: [],
+    availableInvoiceDirs: [],
+    selectedFeeTypes: new Set(),
+    selectedInvoiceDirs: new Set(),
+    summaryResult: null,
+    searchKeyword: '',
+    config: {
+      applicant: (function() {
+        const saved = localStorage.getItem('invoiceApplicant');
+        return (!saved || saved === '刘雯') ? '丁锐杰' : saved;
+      })(),
+      date: '',
+      platform: '国宝猫超',
+      warehouse: '',
+      invoiceType: '专用发票',
+      companyTitle: '浙江昊超网络科技有限公司',
+      taxId: '91330110MA2GK1DN85',
+      address: '杭州市余杭区五常街道文一西路969号3幢5层551室',
+      phone: '0571-85022088',
+      bank: '招商银行股份有限公司杭州高新支行',
+      account: '571913080610506',
+      mailRecipient: '武汉营销中心1293737582@qq.com'
+    }
   }
 };
 
 const el = (id) => document.getElementById(id);
 const refs = {
-  summaryTab: el('summaryTab'), inventoryTab: el('inventoryTab'), deliveryTab: el('deliveryTab'),
-  summaryView: el('summaryView'), inventoryView: el('inventoryView'), deliveryView: el('deliveryView'),
-  summaryTopActions: el('summaryTopActions'), inventoryTopActions: el('inventoryTopActions'), deliveryTopActions: el('deliveryTopActions'),
-  table1Btn: el('table1Btn'), table2Btn: el('table2Btn'), exportBtn: el('exportBtn'), backfillBtn: el('backfillBtn'),
+  summaryTab: el('summaryTab'), inventoryTab: el('inventoryTab'), deliveryTab: el('deliveryTab'), invoiceTab: el('invoiceTab'),
+  summaryView: el('summaryView'), inventoryView: el('inventoryView'), deliveryView: el('deliveryView'), invoiceView: el('invoiceView'),
+  summaryTopActions: el('summaryTopActions'), inventoryTopActions: el('inventoryTopActions'), deliveryTopActions: el('deliveryTopActions'), invoiceTopActions: el('invoiceTopActions'),
+  invoiceModeBadge: el('invoiceModeBadge'), invoiceConfigModalBtn: el('invoiceConfigModalBtn'), exportInvoiceBtn: el('exportInvoiceBtn'),
+  invoiceFilesBtn: el('invoiceFilesBtn'), invoiceFilesSlot: el('invoiceFilesSlot'), invoiceFilesMeta: el('invoiceFilesMeta'),
+  invoiceDateInput: el('invoiceDateInput'), invoiceApplicantInput: el('invoiceApplicantInput'), invoicePlatformInput: el('invoicePlatformInput'), invoiceWarehouseInput: el('invoiceWarehouseInput'),
+  invoiceFilterSection: el('invoiceFilterSection'), invoiceFeeTypeChips: el('invoiceFeeTypeChips'), invoiceDirChips: el('invoiceDirChips'),
+  invoiceFileListSection: el('invoiceFileListSection'), invoiceFileCount: el('invoiceFileCount'), invoiceClearFilesBtn: el('invoiceClearFilesBtn'), invoiceFileChips: el('invoiceFileChips'),
+  invoiceNotice: el('invoiceNotice'), invoiceBillCountMetric: el('invoiceBillCountMetric'), invoiceProductCountMetric: el('invoiceProductCountMetric'),
+  invoiceRowCountMetric: el('invoiceRowCountMetric'), invoiceQtyMetric: el('invoiceQtyMetric'), invoiceAmountMetric: el('invoiceAmountMetric'),
+  invoicePreviewHelp: el('invoicePreviewHelp'), invoiceEmptyState: el('invoiceEmptyState'), invoiceTableWrap: el('invoiceTableWrap'),
+  invoiceTableBody: el('invoiceTableBody'), invoiceFootQty: el('invoiceFootQty'), invoiceFootAmount: el('invoiceFootAmount'), invoiceSearchInput: el('invoiceSearchInput'),
+  invoiceConfigDialog: el('invoiceConfigDialog'), closeInvoiceConfigXBtn: el('closeInvoiceConfigXBtn'), resetInvoiceConfigBtn: el('resetInvoiceConfigBtn'), saveInvoiceConfigBtn: el('saveInvoiceConfigBtn'),
+  cfgInvoiceType: el('cfgInvoiceType'), cfgCompanyTitle: el('cfgCompanyTitle'), cfgTaxId: el('cfgTaxId'), cfgPhone: el('cfgPhone'), cfgAddress: el('cfgAddress'), cfgBank: el('cfgBank'), cfgAccount: el('cfgAccount'), cfgMailRecipient: el('cfgMailRecipient'),
+  table1Btn: el('table1Btn'), table2Btn: el('table2Btn'), exportBtn: el('exportBtn'), backfillBtn: el('backfillBtn'), demandBtn: el('demandBtn'),
+  demandDialog: el('demandDialog'), demandTaskMeta: el('demandTaskMeta'), demandTitleInput: el('demandTitleInput'), demandBaseDateInput: el('demandBaseDateInput'),
+  demandImportReceiptBtn: el('demandImportReceiptBtn'), demandImportTable3Btn: el('demandImportTable3Btn'),
+  demandWarehouseList: el('demandWarehouseList'), confirmDemandBtn: el('confirmDemandBtn'),
   table1Meta: el('table1Meta'), table2Meta: el('table2Meta'), table1Slot: el('table1Slot'), table2Slot: el('table2Slot'),
   brandSelect: el('brandSelect'), mappingBtn: el('mappingBtn'), mappingCount: el('mappingCount'), modeBadge: el('modeBadge'),
   productCatalogBtn: el('productCatalogBtn'), productCatalogCount: el('productCatalogCount'),
@@ -64,7 +113,52 @@ const refs = {
   inventoryTable3Meta: el('inventoryTable3Meta'), liveInventoryMeta: el('liveInventoryMeta'), transitMeta: el('transitMeta'), inventoryNotice: el('inventoryNotice'),
   inventoryTargetMetric: el('inventoryTargetMetric'), inventoryMatchedMetric: el('inventoryMatchedMetric'), inventoryPreservedMetric: el('inventoryPreservedMetric'), inventoryIgnoredMetric: el('inventoryIgnoredMetric'), transitMetric: el('transitMetric'),
   inventoryPreviewHelp: el('inventoryPreviewHelp'), inventorySourceSummary: el('inventorySourceSummary'), inventoryEmptyState: el('inventoryEmptyState'),
-  inventoryPreviewWrap: el('inventoryPreviewWrap'), inventoryUpdateList: el('inventoryUpdateList'), toast: el('toast')
+  inventoryPreviewWrap: el('inventoryPreviewWrap'), inventoryUpdateList: el('inventoryUpdateList'), toast: el('toast'),
+  deliveryDemandBtn: el('deliveryDemandBtn'),
+  manageProductPresetBtn: el('manageProductPresetBtn'),
+  importProductPresetBtn: el('importProductPresetBtn'),
+  productPresetDialog: el('productPresetDialog'),
+  closePresetDialogBtn: el('closePresetDialogBtn'),
+  closePresetBtn: el('closePresetBtn'),
+  presetSearchInput: el('presetSearchInput'),
+  presetCountBadge: el('presetCountBadge'),
+  toggleAddProductBtn: el('toggleAddProductBtn'),
+  importPresetExcelBtn: el('importPresetExcelBtn'),
+  resetPresetBtn: el('resetPresetBtn'),
+  addProductForm: el('addProductForm'),
+  newProductBrand: el('newProductBrand'),
+  newProductBarcode: el('newProductBarcode'),
+  newProductShortName: el('newProductShortName'),
+  newProductSpec: el('newProductSpec'),
+  newProductBoxSpec: el('newProductBoxSpec'),
+  newProductNote: el('newProductNote'),
+  newProductFullName: el('newProductFullName'),
+  cancelAddProductBtn: el('cancelAddProductBtn'),
+  saveNewProductBtn: el('saveNewProductBtn'),
+  presetTableBody: el('presetTableBody'),
+  warehousePresetSlot: el('warehousePresetSlot'),
+  warehousePresetMeta: el('warehousePresetMeta'),
+  manageWarehousePresetBtn: el('manageWarehousePresetBtn'),
+  importWarehousePresetBtn: el('importWarehousePresetBtn'),
+  demandManageWarehousePresetBtn: el('demandManageWarehousePresetBtn'),
+  warehousePresetDialog: el('warehousePresetDialog'),
+  closeWarehousePresetDialogBtn: el('closeWarehousePresetDialogBtn'),
+  closeWarehousePresetBtn: el('closeWarehousePresetBtn'),
+  warehousePresetSearchInput: el('warehousePresetSearchInput'),
+  warehousePresetCountBadge: el('warehousePresetCountBadge'),
+  toggleAddWarehouseBtn: el('toggleAddWarehouseBtn'),
+  importWarehousePresetExcelBtn: el('importWarehousePresetExcelBtn'),
+  resetWarehousePresetBtn: el('resetWarehousePresetBtn'),
+  addWarehouseForm: el('addWarehouseForm'),
+  newWarehouseRegion: el('newWarehouseRegion'),
+  newWarehouseCode: el('newWarehouseCode'),
+  newWarehouseName: el('newWarehouseName'),
+  newLogicWarehouseName: el('newLogicWarehouseName'),
+  newWarehouseFactory: el('newWarehouseFactory'),
+  newWarehouseNote: el('newWarehouseNote'),
+  cancelAddWarehouseBtn: el('cancelAddWarehouseBtn'),
+  saveNewWarehouseBtn: el('saveNewWarehouseBtn'),
+  warehousePresetTableBody: el('warehousePresetTableBody')
 };
 
 function loadJson(key, fallback) {
@@ -141,18 +235,23 @@ function switchWorkflow(workflow) {
   const isSummary = workflow === 'summary';
   const isInventory = workflow === 'inventory';
   const isDelivery = workflow === 'delivery';
+  const isInvoice = workflow === 'invoice';
   refs.summaryTab.classList.toggle('active', isSummary);
   refs.inventoryTab.classList.toggle('active', isInventory);
   refs.deliveryTab.classList.toggle('active', isDelivery);
+  refs.invoiceTab.classList.toggle('active', isInvoice);
   refs.summaryTab.toggleAttribute('aria-current', isSummary);
   refs.inventoryTab.toggleAttribute('aria-current', isInventory);
   refs.deliveryTab.toggleAttribute('aria-current', isDelivery);
+  refs.invoiceTab.toggleAttribute('aria-current', isInvoice);
   refs.summaryView.classList.toggle('hidden', !isSummary);
   refs.inventoryView.classList.toggle('hidden', !isInventory);
   refs.deliveryView.classList.toggle('hidden', !isDelivery);
+  refs.invoiceView.classList.toggle('hidden', !isInvoice);
   refs.summaryTopActions.classList.toggle('hidden', !isSummary);
   refs.inventoryTopActions.classList.toggle('hidden', !isInventory);
   refs.deliveryTopActions.classList.toggle('hidden', !isDelivery);
+  refs.invoiceTopActions.classList.toggle('hidden', !isInvoice);
 }
 
 async function importFile(type) {
@@ -439,6 +538,230 @@ async function exportResult() {
   }
 }
 
+
+function openDemandModal(rows = [], sourceMeta = '') {
+  state.demand.rows = rows.length ? rows : (state.rows || []);
+  state.demand.sourceMeta = sourceMeta;
+  if (!state.demand.rows.length) {
+    showNotice('当前没有汇总数据，可直接点击弹窗内的“导入入库/发货单”或“导入外部表三”。', 'info');
+  }
+  refreshDemandConfig();
+}
+
+async function refreshDemandConfig() {
+  if (refs.demandBtn) refs.demandBtn.disabled = true;
+  if (refs.deliveryDemandBtn) refs.deliveryDemandBtn.disabled = true;
+  try {
+    const config = await window.excelTool.getProcurementConfig({ rows: state.demand.rows });
+    state.demand.warehouses = config.warehouses || [];
+    state.demand.presetFactories = config.presetFactories || [];
+    if (!refs.demandBaseDateInput.value) {
+      refs.demandBaseDateInput.value = config.defaultPickupDate || '';
+    }
+    if (refs.demandTaskMeta) {
+      if (state.demand.sourceMeta) {
+        refs.demandTaskMeta.textContent = state.demand.sourceMeta;
+      } else {
+        refs.demandTaskMeta.textContent = `基于当前补货汇总（包含 ${state.demand.warehouses.length} 个有发货需求的仓库）`;
+      }
+    }
+
+    state.demand.warehouseConfigs = {};
+    state.demand.warehouses.forEach((wh) => {
+      state.demand.warehouseConfigs[wh.warehouse] = {
+        factory: wh.factory,
+        pickupDate: wh.pickupDate || refs.demandBaseDateInput.value,
+        inboundDate: wh.inboundDate || ''
+      };
+    });
+
+    renderDemandWarehouseList();
+    refs.confirmDemandBtn.disabled = state.demand.warehouses.length === 0;
+    refs.demandDialog.showModal();
+  } catch (err) {
+    const msg = err.message || '获取采购需求配置失败';
+    if (state.workflow === 'delivery') {
+      showDeliveryNotice(msg, 'error');
+    } else {
+      showNotice(msg, 'error');
+    }
+    showToast(msg);
+  } finally {
+    if (refs.demandBtn) refs.demandBtn.disabled = false;
+    if (refs.deliveryDemandBtn) refs.deliveryDemandBtn.disabled = false;
+  }
+}
+
+function renderDemandWarehouseList() {
+  refs.demandWarehouseList.replaceChildren();
+  if (!state.demand.warehouses.length) {
+    const emptyRow = document.createElement('div');
+    emptyRow.style.padding = '36px 20px';
+    emptyRow.style.textAlign = 'center';
+    emptyRow.style.color = 'var(--muted)';
+    emptyRow.textContent = '暂无需求数量大于 0 的仓库明细，可点击右上角导入入库单或表三。';
+    refs.demandWarehouseList.append(emptyRow);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  const head = document.createElement('div');
+  head.className = 'demand-row demand-row-head';
+  head.innerHTML = `
+    <div>需求平台/仓</div>
+    <div style="text-align:right">品项数</div>
+    <div style="text-align:right">需求件数</div>
+    <div style="text-align:right">总重量(吨)</div>
+    <div>发货地址(米厂)</div>
+    <div>提货时间</div>
+    <div>入仓时间</div>
+  `;
+  fragment.append(head);
+
+  state.demand.warehouses.forEach((wh) => {
+    const cfg = state.demand.warehouseConfigs[wh.warehouse] || {
+      factory: wh.factory,
+      pickupDate: wh.pickupDate,
+      inboundDate: wh.inboundDate
+    };
+
+    const row = document.createElement('div');
+    row.className = 'demand-row';
+
+    const name = document.createElement('div');
+    name.className = 'demand-wh-name';
+    name.textContent = wh.warehouse;
+    name.title = wh.warehouse;
+
+    const count = document.createElement('div');
+    count.className = 'demand-num';
+    count.textContent = `${wh.itemCount} 项`;
+
+    const qty = document.createElement('div');
+    qty.className = 'demand-num';
+    qty.textContent = formatNumber(wh.totalQty);
+
+    const weight = document.createElement('div');
+    weight.className = 'demand-num';
+    weight.textContent = Number(wh.estimatedWeight).toFixed(3);
+
+    const factoryCell = document.createElement('div');
+    const factorySelect = document.createElement('select');
+    factorySelect.className = 'demand-row-select';
+    state.demand.presetFactories.forEach((f) => {
+      const opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = f;
+      if (f === cfg.factory) opt.selected = true;
+      factorySelect.append(opt);
+    });
+    factorySelect.addEventListener('change', () => {
+      cfg.factory = factorySelect.value;
+    });
+    factoryCell.append(factorySelect);
+
+    const pickupCell = document.createElement('div');
+    const pickupInput = document.createElement('input');
+    pickupInput.type = 'date';
+    pickupInput.className = 'demand-row-date';
+    pickupInput.value = cfg.pickupDate || '';
+    pickupInput.addEventListener('change', () => {
+      cfg.pickupDate = pickupInput.value;
+      if (cfg.pickupDate) {
+        const next = new Date(cfg.pickupDate);
+        next.setDate(next.getDate() + 1);
+        const y = next.getFullYear();
+        const m = String(next.getMonth() + 1).padStart(2, '0');
+        const d = String(next.getDate()).padStart(2, '0');
+        cfg.inboundDate = `${y}-${m}-${d}`;
+        inboundInput.value = cfg.inboundDate;
+      }
+    });
+    pickupCell.append(pickupInput);
+
+    const inboundCell = document.createElement('div');
+    const inboundInput = document.createElement('input');
+    inboundInput.type = 'date';
+    inboundInput.className = 'demand-row-date';
+    inboundInput.value = cfg.inboundDate || '';
+    inboundInput.addEventListener('change', () => {
+      cfg.inboundDate = inboundInput.value;
+    });
+    inboundCell.append(inboundInput);
+
+    row.append(name, count, qty, weight, factoryCell, pickupCell, inboundCell);
+    fragment.append(row);
+  });
+
+  refs.demandWarehouseList.append(fragment);
+}
+
+function handleDemandBaseDateChange() {
+  const baseDate = refs.demandBaseDateInput.value;
+  if (!baseDate) return;
+  const next = new Date(baseDate);
+  next.setDate(next.getDate() + 1);
+  const y = next.getFullYear();
+  const m = String(next.getMonth() + 1).padStart(2, '0');
+  const d = String(next.getDate()).padStart(2, '0');
+  const defaultInbound = `${y}-${m}-${d}`;
+
+  Object.values(state.demand.warehouseConfigs).forEach((cfg) => {
+    cfg.pickupDate = baseDate;
+    cfg.inboundDate = defaultInbound;
+  });
+  renderDemandWarehouseList();
+}
+
+async function handleImportDemand(type) {
+  clearNotice();
+  try {
+    const res = await window.excelTool.importProcurementFile(type);
+    if (!res) return;
+    const isReceipt = type === 'receipt';
+    const label = isReceipt ? `已导入发货单：${res.fileName}` : `已导入表三：${res.fileName}`;
+    showNotice(`${label}，包含 ${res.rows.length} 条发货明细。`, 'success');
+    openDemandModal(res.rows, label);
+  } catch (err) {
+    showNotice(err.message || '导入失败，请检查文件格式。', 'error');
+  }
+}
+
+async function handleExportDemand() {
+  if (!state.demand.warehouses.length) return;
+  refs.confirmDemandBtn.disabled = true;
+  refs.confirmDemandBtn.textContent = '正在生成';
+  try {
+    const title = refs.demandTitleInput.value.trim() || '国宝 采购需求一览表2026年';
+    const res = await window.excelTool.exportProcurementDemand({
+      rows: state.demand.rows,
+      warehouseConfigs: state.demand.warehouseConfigs,
+      title
+    });
+    if (!res) return;
+    refs.demandDialog.close();
+    const successMsg = `已成功导出《${title}》（覆盖 ${res.warehouseCount} 个仓库、${res.itemCount} 条发货明细）。`;
+    if (state.workflow === 'delivery') {
+      showDeliveryNotice(successMsg, 'success');
+    } else {
+      showNotice(successMsg, 'success');
+    }
+    showToast(`采购需求一览表已保存至：${res.filePath}`);
+  } catch (err) {
+    const errorMsg = err.message || '导出采购需求表失败。';
+    if (state.workflow === 'delivery') {
+      showDeliveryNotice(errorMsg, 'error');
+    } else {
+      showNotice(errorMsg, 'error');
+    }
+    showToast(errorMsg);
+  } finally {
+    refs.confirmDemandBtn.disabled = false;
+    refs.confirmDemandBtn.textContent = '生成采购需求表';
+  }
+}
+
 function backfillMetric(label, value, className = '') {
   const item = document.createElement('div');
   item.className = `backfill-summary-item${className ? ` ${className}` : ''}`;
@@ -469,7 +792,15 @@ function renderBackfillPreview() {
     const status = document.createElement('div'); status.className = `backfill-status${item.ready ? '' : ' error'}`; status.textContent = item.ready ? '可生成' : '需处理';
     row.append(warehouse, groups, total, status);
     if (item.errors.length) {
-      const errors = document.createElement('p'); errors.className = 'backfill-errors'; errors.textContent = item.errors.join('；'); row.append(errors);
+      const errors = document.createElement('div');
+      errors.className = 'backfill-errors';
+      item.errors.forEach((message) => {
+        const errItem = document.createElement('div');
+        errItem.className = 'backfill-error-item';
+        errItem.textContent = message;
+        errors.append(errItem);
+      });
+      row.append(errors);
     }
     fragment.append(row);
   });
@@ -888,12 +1219,13 @@ function updateDeliveryControls() {
   refs.productionDateInput.disabled = !state.delivery.analysis;
   refs.applyProductionDateBtn.disabled = !state.delivery.selectedProducts.size;
   refs.generateDeliveryBtn.disabled = !status.ready;
+  if (refs.deliveryDemandBtn) refs.deliveryDemandBtn.disabled = !status.sourceReady || !status.warehouseCount;
   refs.datedProductCount.textContent = `${status.dated} / ${status.products.length}`;
   refs.deliveryMetrics.innerHTML = `<span><strong>${status.brands}</strong> 个品牌</span><span><strong>${status.warehouseCount}</strong> 个仓库</span><span><strong>${status.rows}</strong> 条明细</span><span><strong>${status.fractionalBoxes}</strong> 个小数箱</span>`;
   refs.deliveryReadiness.classList.remove('ready', 'warning');
   if (!status.sourceReady) {
-    refs.deliveryReadiness.lastElementChild.textContent = '等待两份源文件';
-    refs.deliveryModeBadge.textContent = '等待导入文件';
+    refs.deliveryReadiness.lastElementChild.textContent = '等待导入入库明细';
+    refs.deliveryModeBadge.textContent = '等待导入入库明细';
     refs.deliveryExportHint.textContent = '完成文件导入并选择品牌、仓库后即可生成；生产日期可留空。';
     refs.deliveryExportHint.classList.remove('error-copy');
   } else if (!status.dataClean) {
@@ -974,11 +1306,365 @@ async function exportDelivery() {
   }
 }
 
+
+
+async function initWarehousePreset() {
+  try {
+    const preset = await window.excelTool.getWarehousePreset();
+    state.presetWarehouses = preset?.rows || [];
+    updateWarehousePresetMeta();
+  } catch (err) {
+    console.error('Failed to load warehouse preset:', err);
+  }
+}
+
+function updateWarehousePresetMeta() {
+  const count = state.presetWarehouses.length;
+  const factories = [...new Set(state.presetWarehouses.map((w) => w.factory).filter(Boolean))];
+  if (refs.warehousePresetMeta) {
+    refs.warehousePresetMeta.textContent = `已预设 ${count} 个仓库对应关系（${factories.slice(0, 4).join('、')}${factories.length > 4 ? '等' : ''}）`;
+  }
+}
+
+function openWarehousePresetDialog() {
+  if (refs.addWarehouseForm) refs.addWarehouseForm.classList.add('hidden');
+  if (refs.warehousePresetSearchInput) refs.warehousePresetSearchInput.value = '';
+  state.warehousePresetSearch = '';
+  renderWarehousePresetTable();
+  refs.warehousePresetDialog.showModal();
+}
+
+function renderWarehousePresetTable() {
+  const query = (state.warehousePresetSearch || '').trim().toLowerCase();
+  const rows = state.presetWarehouses;
+  const filtered = rows.filter((r) => {
+    if (!query) return true;
+    return (
+      String(r.warehouseName || '').toLowerCase().includes(query) ||
+      String(r.warehouseCode || '').toLowerCase().includes(query) ||
+      String(r.factory || '').toLowerCase().includes(query) ||
+      String(r.region || '').toLowerCase().includes(query) ||
+      String(r.logicName || '').toLowerCase().includes(query) ||
+      String(r.note || '').toLowerCase().includes(query)
+    );
+  });
+
+  if (refs.warehousePresetCountBadge) {
+    refs.warehousePresetCountBadge.textContent = `共 ${rows.length} 个仓库${query ? `（匹配 ${filtered.length} 个）` : ''}`;
+  }
+  if (!refs.warehousePresetTableBody) return;
+  refs.warehousePresetTableBody.replaceChildren();
+
+  filtered.forEach((r, idx) => {
+    const tr = document.createElement('tr');
+
+    const tdIdx = document.createElement('td');
+    tdIdx.className = 'wh-col-idx';
+    tdIdx.textContent = r.id || idx + 1;
+
+    const tdReg = document.createElement('td');
+    tdReg.className = 'wh-col-reg';
+    tdReg.textContent = r.region || '';
+
+    const tdCode = document.createElement('td');
+    tdCode.className = 'wh-col-code';
+    tdCode.textContent = r.warehouseCode || '';
+
+    const tdName = document.createElement('td');
+    tdName.textContent = r.warehouseName || '';
+    tdName.className = 'wh-col-name td-wh-name';
+
+    const tdLogic = document.createElement('td');
+    tdLogic.className = 'wh-col-logic';
+    tdLogic.textContent = r.logicName || '';
+
+    const tdFac = document.createElement('td');
+    tdFac.textContent = r.factory || '';
+    tdFac.className = 'wh-col-fac td-wh-fac';
+
+    const tdNote = document.createElement('td');
+    tdNote.className = 'wh-col-note';
+    tdNote.textContent = r.note || '';
+
+    const tdAction = document.createElement('td');
+    tdAction.className = 'wh-col-action';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'delete-product-btn';
+    delBtn.type = 'button';
+    delBtn.textContent = '删除';
+    delBtn.addEventListener('click', () => handleDeleteWarehousePreset(r));
+    tdAction.append(delBtn);
+
+    tr.append(tdIdx, tdReg, tdCode, tdName, tdLogic, tdFac, tdNote, tdAction);
+    refs.warehousePresetTableBody.append(tr);
+  });
+}
+
+function toggleAddWarehouseForm(show) {
+  const isHidden = refs.addWarehouseForm.classList.contains('hidden');
+  const shouldShow = typeof show === 'boolean' ? show : isHidden;
+  refs.addWarehouseForm.classList.toggle('hidden', !shouldShow);
+  if (shouldShow && refs.newWarehouseName) refs.newWarehouseName.focus();
+}
+
+async function handleSaveNewWarehouse(event) {
+  event.preventDefault();
+  const name = refs.newWarehouseName.value.trim();
+  const factory = refs.newWarehouseFactory.value.trim();
+  if (!name || !factory) return showToast('请填写仓库名称和发货米厂');
+
+  const newRow = {
+    id: state.presetWarehouses.length + 1,
+    region: refs.newWarehouseRegion.value.trim(),
+    warehouseCode: refs.newWarehouseCode.value.trim(),
+    warehouseName: name,
+    logicCode: '',
+    logicName: refs.newLogicWarehouseName.value.trim(),
+    factory: factory.endsWith('米厂') || factory.endsWith('工厂') ? factory : `${factory}米厂`,
+    note: refs.newWarehouseNote.value.trim()
+  };
+
+  state.presetWarehouses.push(newRow);
+  await window.excelTool.saveWarehousePreset(state.presetWarehouses);
+  updateWarehousePresetMeta();
+  refs.addWarehouseForm.reset();
+  refs.addWarehouseForm.classList.add('hidden');
+  renderWarehousePresetTable();
+  showToast(`已新增仓库对应：${name} -> ${newRow.factory}`);
+}
+
+async function handleDeleteWarehousePreset(target) {
+  if (!confirm(`确定要删除“${target.warehouseName}”与“${target.factory}”的对应关系吗？`)) return;
+  state.presetWarehouses = state.presetWarehouses.filter((r) => r !== target);
+  state.presetWarehouses.forEach((r, i) => { r.id = i + 1; });
+  await window.excelTool.saveWarehousePreset(state.presetWarehouses);
+  updateWarehousePresetMeta();
+  renderWarehousePresetTable();
+  showToast(`已删除仓库对应：${target.warehouseName}`);
+}
+
+async function handleImportWarehousePreset() {
+  try {
+    const result = await window.excelTool.importWarehousePreset();
+    if (!result) return;
+    state.presetWarehouses = result.rows;
+    updateWarehousePresetMeta();
+    renderWarehousePresetTable();
+    showToast(`成功导入并覆盖仓库对应表，共 ${result.count} 个仓库`);
+  } catch (err) {
+    showToast(err.message || '导入失败，请检查文件格式');
+  }
+}
+
+async function handleResetWarehousePreset() {
+  if (!confirm('确定要恢复为内置默认仓库米厂对应表吗？自定义配置将被重置。')) return;
+  try {
+    const result = await window.excelTool.resetWarehousePreset();
+    state.presetWarehouses = result.rows;
+    updateWarehousePresetMeta();
+    renderWarehousePresetTable();
+    showToast(`已恢复为默认仓库米厂对应表（共 ${result.count} 个仓库）`);
+  } catch (err) {
+    showToast(err.message || '恢复失败');
+  }
+}
+
+async function initProductPreset() {
+  try {
+    const preset = await window.excelTool.getProductPreset();
+    state.presetProducts = preset?.rows || [];
+    applyPresetToDelivery(state.presetProducts);
+  } catch (err) {
+    console.error('Failed to load product preset:', err);
+  }
+}
+
+function applyPresetToDelivery(rows) {
+  state.delivery.product = {
+    fileName: '全局预设',
+    sheetName: '商品主数据',
+    headers: ['序号', '货品名称（带空格）', '条码', '品牌名称', '备注', '规格kg', '采购规格(箱规数)', '订单简称', '企业微信申报订单简称'],
+    rows
+  };
+  refs.productSlot.classList.add('loaded');
+  const brands = [...new Set(rows.map((r) => r['品牌名称']).filter(Boolean))];
+  refs.productMeta.textContent = `已预设 ${rows.length} 个商品 · 涵盖 ${brands.slice(0, 3).join('、')}${brands.length > 3 ? '等' : ''}`;
+}
+
+function openProductPresetDialog() {
+  refs.addProductForm.classList.add('hidden');
+  refs.presetSearchInput.value = '';
+  state.presetSearch = '';
+  renderPresetTable();
+  refs.productPresetDialog.showModal();
+}
+
+function renderPresetTable() {
+  const query = state.presetSearch.trim().toLowerCase();
+  const rows = state.presetProducts;
+  const filtered = rows.filter((r) => {
+    if (!query) return true;
+    return (
+      String(r['订单简称'] || '').toLowerCase().includes(query) ||
+      String(r['条码'] || '').toLowerCase().includes(query) ||
+      String(r['品牌名称'] || '').toLowerCase().includes(query) ||
+      String(r['货品名称（带空格）'] || '').toLowerCase().includes(query)
+    );
+  });
+
+  refs.presetCountBadge.textContent = `共 ${rows.length} 个商品${query ? `（匹配 ${filtered.length} 个）` : ''}`;
+  refs.presetTableBody.replaceChildren();
+
+  filtered.forEach((r, idx) => {
+    const tr = document.createElement('tr');
+
+    const tdIdx = document.createElement('td');
+    tdIdx.textContent = r['序号'] || idx + 1;
+
+    const tdBrand = document.createElement('td');
+    tdBrand.textContent = r['品牌名称'] || '';
+
+    const tdBarcode = document.createElement('td');
+    tdBarcode.textContent = r['条码'] || '';
+
+    const tdShortName = document.createElement('td');
+    tdShortName.textContent = r['订单简称'] || '';
+
+    const tdSpec = document.createElement('td');
+    tdSpec.textContent = r['规格kg'] ?? '';
+
+    const tdBox = document.createElement('td');
+    tdBox.textContent = r['采购规格(箱规数)'] ?? '';
+
+    const tdFullName = document.createElement('td');
+    tdFullName.textContent = r['货品名称（带空格）'] || '';
+
+    const tdAction = document.createElement('td');
+    const delBtn = document.createElement('button');
+    delBtn.className = 'delete-product-btn';
+    delBtn.type = 'button';
+    delBtn.textContent = '删除';
+    delBtn.addEventListener('click', () => handleDeletePresetProduct(r));
+    tdAction.append(delBtn);
+
+    tr.append(tdIdx, tdBrand, tdBarcode, tdShortName, tdSpec, tdBox, tdFullName, tdAction);
+    refs.presetTableBody.append(tr);
+  });
+}
+
+function toggleAddProductForm(show) {
+  const isHidden = refs.addProductForm.classList.contains('hidden');
+  const shouldShow = typeof show === 'boolean' ? show : isHidden;
+  refs.addProductForm.classList.toggle('hidden', !shouldShow);
+  if (shouldShow) refs.newProductBrand.focus();
+}
+
+async function handleSaveNewProduct(event) {
+  event.preventDefault();
+  const brand = refs.newProductBrand.value.trim();
+  const barcode = refs.newProductBarcode.value.trim();
+  const shortName = refs.newProductShortName.value.trim();
+  const spec = Number(refs.newProductSpec.value) || 0;
+  const boxSpec = Number(refs.newProductBoxSpec.value) || 1;
+  const note = refs.newProductNote.value.trim();
+  const fullName = refs.newProductFullName.value.trim();
+
+  if (!brand || !barcode || !shortName || !fullName) {
+    return showToast('请填写所有必填字段');
+  }
+
+  const newRow = {
+    '序号': state.presetProducts.length + 1,
+    '货品名称（带空格）': fullName,
+    '条码': barcode,
+    '品牌名称': brand,
+    '备注': note,
+    '规格kg': spec,
+    '采购规格(箱规数)': boxSpec,
+    '订单简称': shortName,
+    '企业微信申报订单简称': shortName
+  };
+
+  state.presetProducts.push(newRow);
+  await window.excelTool.saveProductPreset(state.presetProducts);
+  applyPresetToDelivery(state.presetProducts);
+
+  refs.addProductForm.reset();
+  refs.addProductForm.classList.add('hidden');
+  renderPresetTable();
+  if (state.delivery.receipt) await analyzeDelivery();
+  showToast(`已新增商品：${shortName}`);
+}
+
+async function handleDeletePresetProduct(target) {
+  const name = target['订单简称'] || target['货品名称（带空格）'];
+  if (!confirm(`确定要从全局预设中删除商品“${name}”吗？`)) return;
+
+  state.presetProducts = state.presetProducts.filter((r) => r !== target);
+  state.presetProducts.forEach((r, i) => { r['序号'] = i + 1; });
+  await window.excelTool.saveProductPreset(state.presetProducts);
+  applyPresetToDelivery(state.presetProducts);
+
+  renderPresetTable();
+  if (state.delivery.receipt) await analyzeDelivery();
+  showToast(`已删除商品：${name}`);
+}
+
+async function handleImportPresetExcel() {
+  try {
+    const result = await window.excelTool.importProductPreset();
+    if (!result) return;
+    state.presetProducts = result.rows;
+    applyPresetToDelivery(state.presetProducts);
+    renderPresetTable();
+    if (state.delivery.receipt) await analyzeDelivery();
+    showToast(`成功导入并覆盖全局预设，共 ${result.count} 个商品`);
+  } catch (err) {
+    showToast(err.message || '导入失败，请检查文件格式');
+  }
+}
+
+async function handleResetPreset() {
+  if (!confirm('确定要恢复为内置默认商品主数据吗？自定义添加的商品将被重置。')) return;
+  try {
+    const result = await window.excelTool.resetProductPreset();
+    state.presetProducts = result.rows;
+    applyPresetToDelivery(state.presetProducts);
+    renderPresetTable();
+    if (state.delivery.receipt) await analyzeDelivery();
+    showToast(`已恢复为内置默认商品主数据（共 ${result.count} 个商品）`);
+  } catch (err) {
+    showToast(err.message || '恢复失败');
+  }
+}
+
+function handleDeliveryDemand() {
+  if (!state.delivery.receipt || !state.delivery.analysis) {
+    return showDeliveryNotice('请先导入 ReceiptNote 入库明细。', 'error');
+  }
+  const selectedBrands = state.delivery.selectedBrands;
+  const selectedWarehouses = state.delivery.selectedWarehouses;
+  const selectedReceiptRows = state.delivery.receipt.rows.filter((r) =>
+    selectedWarehouses.has(String(r['仓库名称'] || '').trim()) &&
+    selectedBrands.has(String(r['品牌名称'] || '').trim())
+  );
+  if (!selectedReceiptRows.length) {
+    return showDeliveryNotice('请至少选择一个包含有效明细的品牌与仓库。', 'error');
+  }
+  const sourceMeta = `基于送货单选中的 ${selectedWarehouses.size} 个仓库、${selectedBrands.size} 个品牌明细（共 ${selectedReceiptRows.length} 条数据）`;
+  openDemandModal(selectedReceiptRows, sourceMeta);
+}
+
 refs.table1Btn.addEventListener('click', () => importFile('table1'));
 refs.table2Btn.addEventListener('click', () => importFile('table2'));
 refs.exportBtn.addEventListener('click', exportResult);
 refs.backfillBtn.addEventListener('click', openBackfill);
 refs.confirmBackfillBtn.addEventListener('click', exportBackfill);
+refs.demandBtn.addEventListener('click', () => openDemandModal());
+refs.demandBaseDateInput.addEventListener('change', handleDemandBaseDateChange);
+refs.demandImportReceiptBtn.addEventListener('click', () => handleImportDemand('receipt'));
+refs.demandImportTable3Btn.addEventListener('click', () => handleImportDemand('table3'));
+refs.confirmDemandBtn.addEventListener('click', handleExportDemand);
 refs.mappingBtn.addEventListener('click', openMappingDialog);
 refs.productCatalogBtn.addEventListener('click', openProductCatalogDialog);
 refs.saveProductCatalogBtn.addEventListener('click', saveProductCatalog);
@@ -999,7 +1685,7 @@ refs.inventoryTable3Btn.addEventListener('click', () => importInventoryUpdateFil
 refs.liveInventoryBtn.addEventListener('click', () => importInventoryUpdateFile('inventory'));
 refs.transitBtn.addEventListener('click', () => importInventoryUpdateFile('transit'));
 refs.exportInventoryBtn.addEventListener('click', exportInventoryUpdate);
-refs.productBtn.addEventListener('click', () => importDeliveryFile('product'));
+if (refs.productBtn) refs.productBtn.addEventListener('click', () => importDeliveryFile('product'));
 refs.receiptBtn.addEventListener('click', () => importDeliveryFile('receipt'));
 refs.deliveryProductSearch.addEventListener('input', () => { renderDeliveryProducts(); updateDeliveryControls(); });
 refs.selectVisibleProductsBtn.addEventListener('click', () => {
@@ -1019,6 +1705,32 @@ refs.shelfLifeInput.addEventListener('input', () => { state.delivery.shelfLife =
 refs.contactInput.addEventListener('input', () => { state.delivery.contact = refs.contactInput.value; updateDeliveryControls(); });
 refs.splitByWarehouseInput.addEventListener('change', () => { state.delivery.splitByWarehouse = refs.splitByWarehouseInput.checked; updateDeliveryControls(); });
 
+if (refs.deliveryDemandBtn) refs.deliveryDemandBtn.addEventListener('click', handleDeliveryDemand);
+
+if (refs.manageWarehousePresetBtn) refs.manageWarehousePresetBtn.addEventListener('click', openWarehousePresetDialog);
+if (refs.importWarehousePresetBtn) refs.importWarehousePresetBtn.addEventListener('click', handleImportWarehousePreset);
+if (refs.demandManageWarehousePresetBtn) refs.demandManageWarehousePresetBtn.addEventListener('click', openWarehousePresetDialog);
+if (refs.closeWarehousePresetDialogBtn) refs.closeWarehousePresetDialogBtn.addEventListener('click', () => refs.warehousePresetDialog.close());
+if (refs.closeWarehousePresetBtn) refs.closeWarehousePresetBtn.addEventListener('click', () => refs.warehousePresetDialog.close());
+if (refs.toggleAddWarehouseBtn) refs.toggleAddWarehouseBtn.addEventListener('click', () => toggleAddWarehouseForm());
+if (refs.cancelAddWarehouseBtn) refs.cancelAddWarehouseBtn.addEventListener('click', () => toggleAddWarehouseForm(false));
+if (refs.addWarehouseForm) refs.addWarehouseForm.addEventListener('submit', handleSaveNewWarehouse);
+if (refs.importWarehousePresetExcelBtn) refs.importWarehousePresetExcelBtn.addEventListener('click', handleImportWarehousePreset);
+if (refs.resetWarehousePresetBtn) refs.resetWarehousePresetBtn.addEventListener('click', handleResetWarehousePreset);
+if (refs.warehousePresetSearchInput) refs.warehousePresetSearchInput.addEventListener('input', (e) => { state.warehousePresetSearch = e.target.value; renderWarehousePresetTable(); });
+
+if (refs.manageProductPresetBtn) refs.manageProductPresetBtn.addEventListener('click', openProductPresetDialog);
+if (refs.importProductPresetBtn) refs.importProductPresetBtn.addEventListener('click', handleImportPresetExcel);
+if (refs.closePresetDialogBtn) refs.closePresetDialogBtn.addEventListener('click', () => refs.productPresetDialog.close());
+if (refs.closePresetBtn) refs.closePresetBtn.addEventListener('click', () => refs.productPresetDialog.close());
+if (refs.toggleAddProductBtn) refs.toggleAddProductBtn.addEventListener('click', () => toggleAddProductForm());
+if (refs.cancelAddProductBtn) refs.cancelAddProductBtn.addEventListener('click', () => toggleAddProductForm(false));
+if (refs.addProductForm) refs.addProductForm.addEventListener('submit', handleSaveNewProduct);
+if (refs.importPresetExcelBtn) refs.importPresetExcelBtn.addEventListener('click', handleImportPresetExcel);
+if (refs.resetPresetBtn) refs.resetPresetBtn.addEventListener('click', handleResetPreset);
+if (refs.presetSearchInput) refs.presetSearchInput.addEventListener('input', (e) => { state.presetSearch = e.target.value; renderPresetTable(); });
+
+
 refs.supplierNameInput.value = state.delivery.supplierName;
 refs.shelfLifeInput.value = state.delivery.shelfLife;
 refs.contactInput.value = state.delivery.contact;
@@ -1027,3 +1739,486 @@ renderEmpty();
 renderInventoryUpdate();
 renderDeliveryState();
 switchWorkflow('summary');
+initProductPreset();
+initWarehousePreset();
+
+// ==========================================
+// 猫超开票通知单业务逻辑
+// ==========================================
+
+function showInvoiceNotice(message, type = 'warning') {
+  if (!refs.invoiceNotice) return;
+  refs.invoiceNotice.textContent = message;
+  refs.invoiceNotice.classList.remove('hidden', 'error', 'success');
+  if (type !== 'warning') refs.invoiceNotice.classList.add(type);
+}
+
+function clearInvoiceNotice() {
+  if (!refs.invoiceNotice) return;
+  refs.invoiceNotice.classList.add('hidden');
+  refs.invoiceNotice.textContent = '';
+}
+
+function formatCurrentDate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+}
+
+async function initInvoiceModule() {
+  if (!refs.invoiceTab) return;
+
+  // 1. 加载持久化配置
+  try {
+    const storedCfg = await window.excelTool.getInvoiceConfig();
+    if (storedCfg) {
+      state.invoice.config = { ...state.invoice.config, ...storedCfg };
+    }
+  } catch (err) {
+    console.error('Failed to load invoice config:', err);
+  }
+
+  // 2. 填充表单字段
+  if (refs.invoiceDateInput) {
+    refs.invoiceDateInput.value = state.invoice.config.date || formatCurrentDate();
+  }
+  if (refs.invoiceApplicantInput) {
+    if (!state.invoice.config.applicant || state.invoice.config.applicant === '刘雯') {
+      state.invoice.config.applicant = '丁锐杰';
+      localStorage.setItem('invoiceApplicant', '丁锐杰');
+    }
+    refs.invoiceApplicantInput.value = state.invoice.config.applicant;
+  }
+  if (refs.invoicePlatformInput) {
+    refs.invoicePlatformInput.value = state.invoice.config.platform || '国宝猫超';
+  }
+  if (refs.invoiceWarehouseInput) {
+    refs.invoiceWarehouseInput.value = state.invoice.config.warehouse || '';
+  }
+
+  // 3. 监听输入框变化并持久化
+  if (refs.invoiceApplicantInput) {
+    refs.invoiceApplicantInput.addEventListener('change', () => {
+      state.invoice.config.applicant = refs.invoiceApplicantInput.value.trim();
+      localStorage.setItem('invoiceApplicant', state.invoice.config.applicant);
+      window.excelTool.saveInvoiceConfig(state.invoice.config);
+    });
+  }
+  if (refs.invoiceDateInput) {
+    refs.invoiceDateInput.addEventListener('change', () => {
+      state.invoice.config.date = refs.invoiceDateInput.value.trim();
+    });
+  }
+  if (refs.invoicePlatformInput) {
+    refs.invoicePlatformInput.addEventListener('change', () => {
+      state.invoice.config.platform = refs.invoicePlatformInput.value.trim();
+      window.excelTool.saveInvoiceConfig(state.invoice.config);
+    });
+  }
+  if (refs.invoiceWarehouseInput) {
+    refs.invoiceWarehouseInput.addEventListener('change', () => {
+      state.invoice.config.warehouse = refs.invoiceWarehouseInput.value.trim();
+      window.excelTool.saveInvoiceConfig(state.invoice.config);
+    });
+  }
+
+  // 4. 按钮事件绑定
+  if (refs.invoiceTab) {
+    refs.invoiceTab.addEventListener('click', () => switchWorkflow('invoice'));
+  }
+  if (refs.invoiceFilesBtn) {
+    refs.invoiceFilesBtn.addEventListener('click', handleSelectInvoiceFiles);
+  }
+  if (refs.invoiceClearFilesBtn) {
+    refs.invoiceClearFilesBtn.addEventListener('click', handleClearInvoiceFiles);
+  }
+  if (refs.exportInvoiceBtn) {
+    refs.exportInvoiceBtn.addEventListener('click', handleExportInvoice);
+  }
+  if (refs.invoiceSearchInput) {
+    refs.invoiceSearchInput.addEventListener('input', (e) => {
+      state.invoice.searchKeyword = e.target.value.trim().toLowerCase();
+      renderInvoiceTable();
+    });
+  }
+
+  // 5. 开票资料弹窗
+  if (refs.invoiceConfigModalBtn) {
+    refs.invoiceConfigModalBtn.addEventListener('click', openInvoiceConfigDialog);
+  }
+  if (refs.closeInvoiceConfigXBtn) {
+    refs.closeInvoiceConfigXBtn.addEventListener('click', closeInvoiceConfigDialog);
+  }
+  if (refs.saveInvoiceConfigBtn) {
+    refs.saveInvoiceConfigBtn.addEventListener('click', handleSaveInvoiceConfig);
+  }
+  if (refs.resetInvoiceConfigBtn) {
+    refs.resetInvoiceConfigBtn.addEventListener('click', handleResetInvoiceConfig);
+  }
+}
+
+async function handleSelectInvoiceFiles() {
+  clearInvoiceNotice();
+  try {
+    const filePaths = await window.excelTool.openInvoiceFiles();
+    if (!filePaths || !filePaths.length) return;
+
+    // 追加并去重已选文件
+    const currentPaths = new Set(state.invoice.filePaths);
+    filePaths.forEach(fp => currentPaths.add(fp));
+    state.invoice.filePaths = Array.from(currentPaths);
+
+    refs.invoiceFilesBtn.disabled = true;
+    refs.invoiceFilesBtn.textContent = '正在解析...';
+
+    const parseResult = await window.excelTool.parseInvoiceFiles(state.invoice.filePaths);
+    state.invoice.files = parseResult.files || [];
+    state.invoice.rawRows = parseResult.rows || [];
+    state.invoice.availableFeeTypes = parseResult.availableFeeTypes || [];
+    state.invoice.availableInvoiceDirs = parseResult.availableInvoiceDirs || [];
+
+    // 默认全选
+    state.invoice.selectedFeeTypes = new Set(state.invoice.availableFeeTypes);
+    state.invoice.selectedInvoiceDirs = new Set(state.invoice.availableInvoiceDirs);
+
+    // 更新槽位状态
+    refs.invoiceFilesSlot.classList.add('loaded');
+    refs.invoiceFilesMeta.textContent = `已导入 ${state.invoice.files.length} 个文件 · 共 ${state.invoice.rawRows.length} 条明细`;
+    refs.invoiceFilesBtn.textContent = '+ 继续追加';
+
+    // 渲染文件列表与筛选芯片
+    renderInvoiceFileChips();
+    renderInvoiceFilterChips();
+
+    // 运行汇总计算
+    await runInvoiceCalculation();
+    showToast(`成功解析 ${state.invoice.files.length} 个对账单，共 ${state.invoice.rawRows.length} 条明细`);
+  } catch (err) {
+    showInvoiceNotice(err.message || '对账单读取失败，请检查文件格式。', 'error');
+  } finally {
+    refs.invoiceFilesBtn.disabled = false;
+    if (refs.invoiceFilesBtn.textContent === '正在解析...') {
+      refs.invoiceFilesBtn.textContent = state.invoice.files.length ? '+ 继续追加' : '选择对账单';
+    }
+  }
+}
+
+function handleRemoveInvoiceFile(filePath) {
+  state.invoice.filePaths = state.invoice.filePaths.filter(fp => fp !== filePath);
+  if (!state.invoice.filePaths.length) {
+    handleClearInvoiceFiles();
+    return;
+  }
+  window.excelTool.parseInvoiceFiles(state.invoice.filePaths).then(parseResult => {
+    state.invoice.files = parseResult.files || [];
+    state.invoice.rawRows = parseResult.rows || [];
+    state.invoice.availableFeeTypes = parseResult.availableFeeTypes || [];
+    state.invoice.availableInvoiceDirs = parseResult.availableInvoiceDirs || [];
+
+    state.invoice.selectedFeeTypes = new Set(
+      Array.from(state.invoice.selectedFeeTypes).filter(t => state.invoice.availableFeeTypes.includes(t))
+    );
+    if (!state.invoice.selectedFeeTypes.size) {
+      state.invoice.selectedFeeTypes = new Set(state.invoice.availableFeeTypes);
+    }
+    state.invoice.selectedInvoiceDirs = new Set(
+      Array.from(state.invoice.selectedInvoiceDirs).filter(d => state.invoice.availableInvoiceDirs.includes(d))
+    );
+    if (!state.invoice.selectedInvoiceDirs.size) {
+      state.invoice.selectedInvoiceDirs = new Set(state.invoice.availableInvoiceDirs);
+    }
+
+    renderInvoiceFileChips();
+    renderInvoiceFilterChips();
+    runInvoiceCalculation();
+  }).catch(err => {
+    showInvoiceNotice(err.message, 'error');
+  });
+}
+
+function handleClearInvoiceFiles() {
+  state.invoice.filePaths = [];
+  state.invoice.files = [];
+  state.invoice.rawRows = [];
+  state.invoice.availableFeeTypes = [];
+  state.invoice.availableInvoiceDirs = [];
+  state.invoice.selectedFeeTypes.clear();
+  state.invoice.selectedInvoiceDirs.clear();
+  state.invoice.summaryResult = null;
+
+  refs.invoiceFilesSlot.classList.remove('loaded');
+  refs.invoiceFilesMeta.textContent = '支持多选或多次追加多个对账单 Excel';
+  refs.invoiceFilesBtn.textContent = '选择对账单';
+
+  refs.invoiceFileListSection.classList.add('hidden');
+  refs.invoiceFilterSection.classList.add('hidden');
+  refs.invoiceTableWrap.classList.add('hidden');
+  refs.invoiceEmptyState.classList.remove('hidden');
+
+  refs.invoiceBillCountMetric.textContent = '0';
+  refs.invoiceProductCountMetric.textContent = '0';
+  refs.invoiceRowCountMetric.textContent = '0';
+  refs.invoiceQtyMetric.textContent = '0';
+  refs.invoiceAmountMetric.textContent = '0.00';
+
+  refs.invoiceModeBadge.textContent = '等待导入对账单';
+  refs.exportInvoiceBtn.disabled = true;
+  refs.invoiceSearchInput.disabled = true;
+  refs.invoiceSearchInput.value = '';
+  clearInvoiceNotice();
+}
+
+function renderInvoiceFileChips() {
+  if (!state.invoice.files.length) {
+    refs.invoiceFileListSection.classList.add('hidden');
+    return;
+  }
+  refs.invoiceFileListSection.classList.remove('hidden');
+  refs.invoiceFileCount.textContent = state.invoice.files.length;
+  refs.invoiceFileChips.replaceChildren();
+
+  state.invoice.files.forEach(f => {
+    const chip = document.createElement('div');
+    chip.className = 'invoice-file-chip';
+    chip.innerHTML = `
+      <span>📄 <strong>${f.fileName}</strong> <small style="color:var(--muted)">(${f.rowCount}行${f.timeRange ? ' · ' + f.timeRange : ''})</small></span>
+      <button type="button" class="remove-file-btn" title="移除此文件">×</button>
+    `;
+    chip.querySelector('.remove-file-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleRemoveInvoiceFile(f.filePath);
+    });
+    refs.invoiceFileChips.appendChild(chip);
+  });
+}
+
+function renderInvoiceFilterChips() {
+  if (!state.invoice.rawRows.length) {
+    refs.invoiceFilterSection.classList.add('hidden');
+    return;
+  }
+  refs.invoiceFilterSection.classList.remove('hidden');
+
+  // 1. 费用类型
+  refs.invoiceFeeTypeChips.replaceChildren();
+  state.invoice.availableFeeTypes.forEach(feeType => {
+    const isChecked = state.invoice.selectedFeeTypes.has(feeType);
+    const chip = document.createElement('label');
+    chip.className = `filter-chip ${isChecked ? 'active' : ''}`;
+    chip.innerHTML = `
+      <input type="checkbox" ${isChecked ? 'checked' : ''}>
+      <span>${feeType}</span>
+    `;
+    const input = chip.querySelector('input');
+    input.addEventListener('change', () => {
+      if (input.checked) {
+        state.invoice.selectedFeeTypes.add(feeType);
+        chip.classList.add('active');
+      } else {
+        state.invoice.selectedFeeTypes.delete(feeType);
+        chip.classList.remove('active');
+      }
+      runInvoiceCalculation();
+    });
+    refs.invoiceFeeTypeChips.appendChild(chip);
+  });
+
+  // 2. 发票方向
+  refs.invoiceDirChips.replaceChildren();
+  state.invoice.availableInvoiceDirs.forEach(dir => {
+    const isChecked = state.invoice.selectedInvoiceDirs.has(dir);
+    const chip = document.createElement('label');
+    chip.className = `filter-chip ${isChecked ? 'active' : ''}`;
+    chip.innerHTML = `
+      <input type="checkbox" ${isChecked ? 'checked' : ''}>
+      <span>${dir}</span>
+    `;
+    const input = chip.querySelector('input');
+    input.addEventListener('change', () => {
+      if (input.checked) {
+        state.invoice.selectedInvoiceDirs.add(dir);
+        chip.classList.add('active');
+      } else {
+        state.invoice.selectedInvoiceDirs.delete(dir);
+        chip.classList.remove('active');
+      }
+      runInvoiceCalculation();
+    });
+    refs.invoiceDirChips.appendChild(chip);
+  });
+}
+
+async function runInvoiceCalculation() {
+  if (!state.invoice.rawRows.length) return;
+
+  const result = await window.excelTool.calculateInvoice({
+    rows: state.invoice.rawRows,
+    selectedFeeTypes: Array.from(state.invoice.selectedFeeTypes),
+    selectedInvoiceDirs: Array.from(state.invoice.selectedInvoiceDirs)
+  });
+
+  state.invoice.summaryResult = result;
+
+  const billCount = new Set(state.invoice.rawRows.map(r => r.billNo).filter(Boolean)).size;
+  refs.invoiceBillCountMetric.textContent = billCount;
+  refs.invoiceProductCountMetric.textContent = result.productCount;
+  refs.invoiceRowCountMetric.textContent = result.matchedRowCount;
+  refs.invoiceQtyMetric.textContent = result.totalQty.toLocaleString();
+  refs.invoiceAmountMetric.textContent = result.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  if (result.items.length > 0) {
+    refs.invoiceEmptyState.classList.add('hidden');
+    refs.invoiceTableWrap.classList.remove('hidden');
+    refs.exportInvoiceBtn.disabled = false;
+    refs.invoiceSearchInput.disabled = false;
+    refs.invoiceModeBadge.textContent = `就绪 · ${result.productCount} 种商品 · ${result.totalQty} 袋`;
+  } else {
+    refs.invoiceEmptyState.classList.remove('hidden');
+    refs.invoiceTableWrap.classList.add('hidden');
+    refs.exportInvoiceBtn.disabled = true;
+    refs.invoiceSearchInput.disabled = true;
+    refs.invoiceModeBadge.textContent = '当前筛选条件下无结算商品';
+  }
+
+  renderInvoiceTable();
+}
+
+function renderInvoiceTable() {
+  if (!state.invoice.summaryResult) return;
+  const items = state.invoice.summaryResult.items || [];
+  const keyword = state.invoice.searchKeyword;
+
+  const filtered = keyword
+    ? items.filter(it => it.shortName.toLowerCase().includes(keyword) || (it.spec && it.spec.toLowerCase().includes(keyword)))
+    : items;
+
+  refs.invoiceTableBody.replaceChildren();
+
+  let visibleQty = 0;
+  let visibleAmount = 0;
+
+  filtered.forEach((item, index) => {
+    visibleQty += item.qty;
+    visibleAmount += item.amount;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="col-num">${index + 1}</td>
+      <td class="col-product">${item.shortName}</td>
+      <td class="col-spec">${item.spec || '-'}</td>
+      <td class="col-qty">${item.qty.toLocaleString()}</td>
+      <td class="col-price">${item.unitPrice.toFixed(4)}</td>
+      <td class="col-amount">${item.amount.toFixed(2)}</td>
+      <td class="col-match">
+        <span class="match-badge ${item.matched ? 'ok' : 'warn'}">
+          ${item.matched ? '已匹配' : '未在预设'}
+        </span>
+      </td>
+      <td class="col-remark">来源 ${item.detailCount} 行</td>
+    `;
+    refs.invoiceTableBody.appendChild(tr);
+  });
+
+  refs.invoiceFootQty.textContent = visibleQty.toLocaleString();
+  refs.invoiceFootAmount.textContent = visibleAmount.toFixed(2);
+}
+
+async function handleExportInvoice() {
+  if (!state.invoice.summaryResult || !state.invoice.summaryResult.items.length) {
+    showNotice('没有可导出的开票商品。', 'error');
+    return;
+  }
+
+  refs.exportInvoiceBtn.disabled = true;
+  refs.exportInvoiceBtn.textContent = '正在导出...';
+
+  try {
+    const dateVal = refs.invoiceDateInput.value.trim() || formatCurrentDate();
+    const applicantVal = refs.invoiceApplicantInput.value.trim() || '丁锐杰';
+    const platformVal = refs.invoicePlatformInput.value.trim() || '国宝猫超';
+    const warehouseVal = refs.invoiceWarehouseInput.value.trim() || '';
+
+    const exportConfig = {
+      ...state.invoice.config,
+      date: dateVal,
+      applicant: applicantVal,
+      platform: platformVal,
+      warehouse: warehouseVal
+    };
+
+    const defaultFileName = `开票通知单_${platformVal}_${dateVal}.xlsx`;
+
+    const res = await window.excelTool.exportInvoice({
+      items: state.invoice.summaryResult.items,
+      config: exportConfig,
+      defaultFileName
+    });
+
+    if (res && res.ok) {
+      showToast(`开票通知单导出成功！共 ${res.itemCount} 种商品`);
+    }
+  } catch (err) {
+    showInvoiceNotice(err.message || '导出开票通知单失败。', 'error');
+  } finally {
+    refs.exportInvoiceBtn.disabled = false;
+    refs.exportInvoiceBtn.textContent = '导出开票通知单';
+  }
+}
+
+function openInvoiceConfigDialog() {
+  const cfg = state.invoice.config;
+  refs.cfgInvoiceType.value = cfg.invoiceType || '专用发票';
+  refs.cfgCompanyTitle.value = cfg.companyTitle || '浙江昊超网络科技有限公司';
+  refs.cfgTaxId.value = cfg.taxId || '91330110MA2GK1DN85';
+  refs.cfgAddress.value = cfg.address || '杭州市余杭区五常街道文一西路969号3幢5层551室';
+  refs.cfgPhone.value = cfg.phone || '0571-85022088';
+  refs.cfgBank.value = cfg.bank || '招商银行股份有限公司杭州高新支行';
+  refs.cfgAccount.value = cfg.account || '571913080610506';
+  refs.cfgMailRecipient.value = cfg.mailRecipient || '武汉营销中心1293737582@qq.com';
+  refs.invoiceConfigDialog.showModal();
+}
+
+function closeInvoiceConfigDialog() {
+  refs.invoiceConfigDialog.close();
+}
+
+async function handleSaveInvoiceConfig() {
+  state.invoice.config.invoiceType = refs.cfgInvoiceType.value.trim();
+  state.invoice.config.companyTitle = refs.cfgCompanyTitle.value.trim();
+  state.invoice.config.taxId = refs.cfgTaxId.value.trim();
+  state.invoice.config.address = refs.cfgAddress.value.trim();
+  state.invoice.config.phone = refs.cfgPhone.value.trim();
+  state.invoice.config.bank = refs.cfgBank.value.trim();
+  state.invoice.config.account = refs.cfgAccount.value.trim();
+  state.invoice.config.mailRecipient = refs.cfgMailRecipient.value.trim();
+
+  await window.excelTool.saveInvoiceConfig(state.invoice.config);
+  closeInvoiceConfigDialog();
+  showToast('开票资料保存成功');
+}
+
+async function handleResetInvoiceConfig() {
+  const defaultCfg = {
+    invoiceType: '专用发票',
+    companyTitle: '浙江昊超网络科技有限公司',
+    taxId: '91330110MA2GK1DN85',
+    address: '杭州市余杭区五常街道文一西路969号3幢5层551室',
+    phone: '0571-85022088',
+    bank: '招商银行股份有限公司杭州高新支行',
+    account: '571913080610506',
+    mailRecipient: '武汉营销中心1293737582@qq.com'
+  };
+  refs.cfgInvoiceType.value = defaultCfg.invoiceType;
+  refs.cfgCompanyTitle.value = defaultCfg.companyTitle;
+  refs.cfgTaxId.value = defaultCfg.taxId;
+  refs.cfgAddress.value = defaultCfg.address;
+  refs.cfgPhone.value = defaultCfg.phone;
+  refs.cfgBank.value = defaultCfg.bank;
+  refs.cfgAccount.value = defaultCfg.account;
+  refs.cfgMailRecipient.value = defaultCfg.mailRecipient;
+
+  state.invoice.config = { ...state.invoice.config, ...defaultCfg };
+  await window.excelTool.saveInvoiceConfig(state.invoice.config);
+  showToast('已恢复默认开票资料');
+}
+
+initInvoiceModule();

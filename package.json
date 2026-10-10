@@ -1,6 +1,6 @@
 {
   "name": "excel-warehouse-summary",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "仓配订单汇总 Electron 桌面工具",
   "main": "src/main.js",
   "author": "Excel Tool",
@@ -9,8 +9,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "pack": "electron-builder --dir -c.electronDist=node_modules/electron/dist",
-    "dist:fast": "electron-builder --win nsis -c.compression=store -c.electronDist=node_modules/electron/dist",
+    "pack": "electron-builder --dir",
+    "dist:fast": "electron-builder --win nsis -c.compression=store",
     "dist": "electron-builder --win nsis"
   },
   "dependencies": {
@@ -22,6 +22,10 @@
   },
   "build": {
     "npmRebuild": false,
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
     "electronDownload": {
       "mirror": "https://npmmirror.com/mirrors/electron/"
     },
@@ -30,6 +34,8 @@
     "artifactName": "仓配订单汇总工具-${version}-${arch}.${ext}",
     "files": [
       "src/**/*",
+      "product-preset.json",
+      "warehouse-preset.json",
       "package.json"
     ],
     "win": {
