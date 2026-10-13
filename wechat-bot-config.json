@@ -1,0 +1,11 @@
+{
+  "enabled": false,
+  "corpId": "wwdfec5ca0f60cdd6a",
+  "agentId": "1000002",
+  "secret": "7hkrjwo29Hj83Adrdf-h_Cf6OscGww9IMMnvBY_x8yk",
+  "token": "zrnxVqMLl2Zlq3Vu09mSa1x50",
+  "encodingAESKey": "fwF6akkh6ySlCDfC2mQUAOiRU73wr8WCQGb1Q8X53IK",
+  "port": 3000,
+  "webhookPath": "/wechat",
+  "sessionTimeoutMinutes": 15
+}

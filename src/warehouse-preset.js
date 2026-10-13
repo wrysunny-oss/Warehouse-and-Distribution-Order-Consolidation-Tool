@@ -6,27 +6,27 @@ const ExcelJS = require('exceljs');
 const { cleanText } = require('./core');
 
 const DEFAULT_WAREHOUSE_PRESETS = [
-  { id: 1, region: '华东仓', warehouseCode: 'HGH101', warehouseName: '华东杭州直营商超仓', logicCode: 'LHGH001', logicName: '杭州商超逻辑1仓', factory: '宏禾米厂', note: '' },
-  { id: 2, region: '华东仓', warehouseCode: 'HFE101', warehouseName: '华东合肥直营商超仓', logicCode: 'LHFE001', logicName: '合肥商超逻辑1仓', factory: '宏禾米厂', note: '' },
-  { id: 3, region: '华东仓', warehouseCode: 'ALOG-0001', warehouseName: '华东嘉定直营商超仓', logicCode: 'LSHA001', logicName: '上海商超逻辑1仓', factory: '宏禾米厂', note: '' },
-  { id: 4, region: '华东仓', warehouseCode: 'STORE_12005465', warehouseName: '华东嘉兴直营商超A仓', logicCode: 'LJIX001', logicName: '嘉兴商超逻辑1仓', factory: '宏禾米厂', note: '' },
-  { id: 5, region: '华东仓', warehouseCode: 'STORE_757914', warehouseName: '华东金义直营商超仓', logicCode: 'LJHA001', logicName: '金华商超逻辑1仓', factory: '宏禾米厂', note: '' },
-  { id: 6, region: '华东仓', warehouseCode: 'NKG101', warehouseName: '华东南京直营商超仓', logicCode: 'LNKG001', logicName: '南京商超逻辑1仓', factory: '宏禾米厂', note: '' },
-  { id: 7, region: '华东仓', warehouseCode: 'WUX101', warehouseName: '华东无锡直营商超仓', logicCode: 'LWUX001', logicName: '无锡商超逻辑1仓', factory: '宏禾米厂', note: '' },
-  { id: 8, region: '华东仓', warehouseCode: 'PIH101', warehouseName: '华东嘉兴返退中心仓', logicCode: 'LJIX008', logicName: '嘉兴商超逻辑8仓', factory: '宏禾米厂', note: '华东区域退货仓' },
-  { id: 9, region: '华南仓', warehouseCode: 'DGM105', warehouseName: '华南东莞直营商超仓', logicCode: 'LDGM001', logicName: '东莞商超逻辑1仓', factory: '腾三龙米厂', note: '' },
-  { id: 10, region: '华南仓', warehouseCode: 'ALOG-0002', warehouseName: '华南广州直营商超A仓', logicCode: 'LCAN001', logicName: '广州商超逻辑1仓', factory: '腾三龙米厂', note: '' },
-  { id: 11, region: '华南仓', warehouseCode: 'HUZ101', warehouseName: '华南惠阳直营商超仓', logicCode: 'LHUZ001', logicName: '惠州商超逻辑1仓', factory: '腾三龙米厂', note: '' },
-  { id: 12, region: '华南仓', warehouseCode: 'JIM101', warehouseName: '华南江门直营商超仓', logicCode: 'LJIM001', logicName: '江门商超逻辑1仓', factory: '腾三龙米厂', note: '' },
-  { id: 13, region: '华南仓', warehouseCode: 'HYA101', warehouseName: '华南惠阳返退中心仓', logicCode: 'LHUZ002', logicName: '惠州商超逻辑2仓', factory: '腾三龙米厂', note: '华南区域退货仓' },
-  { id: 14, region: '西南仓', warehouseCode: 'CTU101', warehouseName: '华西成都直营商超仓', logicCode: 'LCTU001', logicName: '成都商超逻辑1仓', factory: '正点米厂', note: '' },
-  { id: 15, region: '西南仓', warehouseCode: 'LW_TTCKG0001', warehouseName: '华西猫超重庆RDC仓', logicCode: 'LW_TTCKG0001_LG', logicName: '重庆RDC仓_逻辑仓', factory: '正点米厂', note: '' },
-  { id: 16, region: '西南仓', warehouseCode: 'CTU108', warehouseName: '华西成都返退中心仓', logicCode: 'LCTU004', logicName: '成都商超逻辑4仓', factory: '正点米厂', note: '西南区域退货仓' },
-  { id: 17, region: '华中仓', warehouseCode: 'KHN101', warehouseName: '华中南昌直营商超仓', logicCode: 'LKHN001', logicName: '南昌商超逻辑1仓', factory: '宏禾米厂', note: '' },
-  { id: 18, region: '华中仓', warehouseCode: 'STORE_1228938', warehouseName: '华中武汉直营商超仓', logicCode: 'LWUH001', logicName: '武汉商超逻辑1仓', factory: '青龙米厂', note: '' },
-  { id: 19, region: '华中仓', warehouseCode: 'CSX101', warehouseName: '华中长沙直营商超仓', logicCode: 'LCSX001', logicName: '长沙商超逻辑1仓', factory: '青龙米厂', note: '' },
-  { id: 20, region: '华中仓', warehouseCode: 'WUH106', warehouseName: '华中武汉返退中心仓', logicCode: 'LWUH006', logicName: '武汉商超逻辑6仓', factory: '青龙米厂', note: '华中区域退货仓' },
-  { id: 21, region: '华中仓', warehouseCode: 'WHKC0001', warehouseName: '华中武汉直营集货仓', logicCode: 'LWUH002', logicName: '华中武汉直营集货仓', factory: '青龙米厂', note: '' }
+  { id: 1, region: '华东仓', warehouseCode: 'HGH101', warehouseName: '华东杭州直营商超仓', logicCode: 'LHGH001', logicName: '杭州商超逻辑1仓', factory: '宏禾米厂', note: '', inStats: true },
+  { id: 2, region: '华东仓', warehouseCode: 'HFE101', warehouseName: '华东合肥直营商超仓', logicCode: 'LHFE001', logicName: '合肥商超逻辑1仓', factory: '宏禾米厂', note: '', inStats: true },
+  { id: 3, region: '华东仓', warehouseCode: 'ALOG-0001', warehouseName: '华东嘉定直营商超仓', logicCode: 'LSHA001', logicName: '上海商超逻辑1仓', factory: '宏禾米厂', note: '', inStats: true },
+  { id: 4, region: '华东仓', warehouseCode: 'STORE_12005465', warehouseName: '华东嘉兴直营商超A仓', logicCode: 'LJIX001', logicName: '嘉兴商超逻辑1仓', factory: '宏禾米厂', note: '', inStats: true },
+  { id: 5, region: '华东仓', warehouseCode: 'STORE_757914', warehouseName: '华东金义直营商超仓', logicCode: 'LJHA001', logicName: '金华商超逻辑1仓', factory: '宏禾米厂', note: '', inStats: true },
+  { id: 6, region: '华东仓', warehouseCode: 'NKG101', warehouseName: '华东南京直营商超仓', logicCode: 'LNKG001', logicName: '南京商超逻辑1仓', factory: '宏禾米厂', note: '', inStats: true },
+  { id: 7, region: '华东仓', warehouseCode: 'WUX101', warehouseName: '华东无锡直营商超仓', logicCode: 'LWUX001', logicName: '无锡商超逻辑1仓', factory: '宏禾米厂', note: '', inStats: true },
+  { id: 8, region: '华东仓', warehouseCode: 'PIH101', warehouseName: '华东嘉兴返退中心仓', logicCode: 'LJIX008', logicName: '嘉兴商超逻辑8仓', factory: '宏禾米厂', note: '华东区域退货仓', inStats: false },
+  { id: 9, region: '华南仓', warehouseCode: 'DGM105', warehouseName: '华南东莞直营商超仓', logicCode: 'LDGM001', logicName: '东莞商超逻辑1仓', factory: '腾三龙米厂', note: '', inStats: true },
+  { id: 10, region: '华南仓', warehouseCode: 'ALOG-0002', warehouseName: '华南广州直营商超A仓', logicCode: 'LCAN001', logicName: '广州商超逻辑1仓', factory: '腾三龙米厂', note: '', inStats: true },
+  { id: 11, region: '华南仓', warehouseCode: 'HUZ101', warehouseName: '华南惠阳直营商超仓', logicCode: 'LHUZ001', logicName: '惠州商超逻辑1仓', factory: '腾三龙米厂', note: '', inStats: true },
+  { id: 12, region: '华南仓', warehouseCode: 'JIM101', warehouseName: '华南江门直营商超仓', logicCode: 'LJIM001', logicName: '江门商超逻辑1仓', factory: '腾三龙米厂', note: '', inStats: true },
+  { id: 13, region: '华南仓', warehouseCode: 'HYA101', warehouseName: '华南惠阳返退中心仓', logicCode: 'LHUZ002', logicName: '惠州商超逻辑2仓', factory: '腾三龙米厂', note: '华南区域退货仓', inStats: false },
+  { id: 14, region: '西南仓', warehouseCode: 'CTU101', warehouseName: '华西成都直营商超仓', logicCode: 'LCTU001', logicName: '成都商超逻辑1仓', factory: '正点米厂', note: '', inStats: true },
+  { id: 15, region: '西南仓', warehouseCode: 'LW_TTCKG0001', warehouseName: '华西猫超重庆RDC仓', logicCode: 'LW_TTCKG0001_LG', logicName: '重庆RDC仓_逻辑仓', factory: '正点米厂', note: '', inStats: true },
+  { id: 16, region: '西南仓', warehouseCode: 'CTU108', warehouseName: '华西成都返退中心仓', logicCode: 'LCTU004', logicName: '成都商超逻辑4仓', factory: '正点米厂', note: '西南区域退货仓', inStats: false },
+  { id: 17, region: '华中仓', warehouseCode: 'KHN101', warehouseName: '华中南昌直营商超仓', logicCode: 'LKHN001', logicName: '南昌商超逻辑1仓', factory: '宏禾米厂', note: '', inStats: true },
+  { id: 18, region: '华中仓', warehouseCode: 'STORE_1228938', warehouseName: '华中武汉直营商超仓', logicCode: 'LWUH001', logicName: '武汉商超逻辑1仓', factory: '青龙米厂', note: '', inStats: true },
+  { id: 19, region: '华中仓', warehouseCode: 'CSX101', warehouseName: '华中长沙直营商超仓', logicCode: 'LCSX001', logicName: '长沙商超逻辑1仓', factory: '青龙米厂', note: '', inStats: true },
+  { id: 20, region: '华中仓', warehouseCode: 'WUH106', warehouseName: '华中武汉返退中心仓', logicCode: 'LWUH006', logicName: '武汉商超逻辑6仓', factory: '青龙米厂', note: '华中区域退货仓', inStats: false },
+  { id: 21, region: '华中仓', warehouseCode: 'WHKC0001', warehouseName: '华中武汉直营集货仓', logicCode: 'LWUH002', logicName: '华中武汉直营集货仓', factory: '青龙米厂', note: '', inStats: false }
 ];
 
 function normalizeFactory(name) {
@@ -63,6 +63,16 @@ function sanitizeWarehouseRow(row, index = 1) {
   const factory = normalizeFactory(rawFactory);
   const note = cleanText(row.note || row['备注']);
 
+  let inStats;
+  if (row.inStats !== undefined) {
+    inStats = Boolean(row.inStats);
+  } else if (row['参与统计'] !== undefined) {
+    inStats = Boolean(row['参与统计']);
+  } else {
+    const isSpecial = note.includes('退货') || warehouseName.includes('返退') || warehouseName.includes('集货');
+    inStats = !isSpecial;
+  }
+
   return {
     id: index,
     region,
@@ -71,7 +81,15 @@ function sanitizeWarehouseRow(row, index = 1) {
     logicCode,
     logicName,
     factory,
-    note
+    note,
+    inStats,
+    '区域': region,
+    '仓库编码': warehouseCode,
+    '仓库名称': warehouseName,
+    '逻辑仓名称': logicName,
+    '发货米厂': factory,
+    '备注': note,
+    '参与统计': inStats
   };
 }
 

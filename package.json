@@ -1,24 +1,47 @@
 {
   "name": "excel-warehouse-summary",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "仓配订单汇总 Electron 桌面工具",
   "main": "src/main.js",
   "author": "Excel Tool",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "start": "electron .",
+    "build:ui": "vite build",
+    "build": "vite build",
+    "dev:ui": "vite",
+    "dev": "vite build --watch",
+    "start": "vite build && electron .",
     "test": "node --test",
-    "pack": "electron-builder --dir",
-    "dist:fast": "electron-builder --win nsis -c.compression=store",
-    "dist": "electron-builder --win nsis"
+    "test:qq": "node scripts/test-qq-local.js",
+    "bot": "node src/bot/server.js",
+    "pack": "vite build && electron-builder --dir",
+    "dist:fast": "vite build && electron-builder --win nsis -c.compression=store",
+    "dist": "vite build && electron-builder --win nsis"
   },
   "dependencies": {
-    "exceljs": "^4.4.0"
+    "@radix-ui/react-checkbox": "^1.3.12",
+    "@radix-ui/react-dialog": "^1.2.0",
+    "@radix-ui/react-slot": "^1.4.0",
+    "@radix-ui/react-tabs": "^1.1.22",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "exceljs": "^4.4.0",
+    "lucide-react": "^1.54.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "autoprefixer": "^10.6.1",
     "electron": "^38.2.1",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "postcss": "^8.5.29",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.4"
   },
   "build": {
     "npmRebuild": false,

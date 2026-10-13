@@ -144,6 +144,7 @@ async function parseReconciliationFiles(filePaths) {
     return {
       files: [],
       rows: [],
+      rawRows: [],
       availableFeeTypes: [],
       availableInvoiceDirs: [],
       availableDocTypes: [],
@@ -163,6 +164,8 @@ async function parseReconciliationFiles(filePaths) {
     files.push({
       filePath: fileRes.filePath,
       fileName: fileRes.fileName,
+      path: fileRes.filePath,
+      name: fileRes.fileName,
       rowCount: fileRes.rowCount,
       billNos: fileRes.billNos,
       timeRange: fileRes.timeRange
@@ -179,6 +182,7 @@ async function parseReconciliationFiles(filePaths) {
   return {
     files,
     rows: allRows,
+    rawRows: allRows,
     availableFeeTypes: Array.from(feeTypeSet),
     availableInvoiceDirs: Array.from(invoiceDirSet),
     availableDocTypes: Array.from(docTypeSet),
@@ -268,20 +272,27 @@ function matchProductWithPreset(backendName, presetRows = []) {
 }
 
 /**
- * 核心汇总计算：按勾选的费用类型、发票方向筛选并聚合成开票清单
+ * 核心汇总计算：费用类型筛选只作用于数量，发票方向筛选只作用于金额
  */
-function calculateInvoiceSummary(rows = [], { selectedFeeTypes = [], selectedInvoiceDirs = [], presetRows = [] } = {}) {
-  const feeTypeFilter = selectedFeeTypes && selectedFeeTypes.length > 0 ? new Set(selectedFeeTypes) : null;
-  const invoiceDirFilter = selectedInvoiceDirs && selectedInvoiceDirs.length > 0 ? new Set(selectedInvoiceDirs) : null;
+function calculateInvoiceSummary(rows = [], { selectedFeeTypes, selectedInvoiceDirs, presetRows = [] } = {}) {
+  const feeTypeFilter = Array.isArray(selectedFeeTypes) ? new Set(selectedFeeTypes) : null;
+  const invoiceDirFilter = Array.isArray(selectedInvoiceDirs) ? new Set(selectedInvoiceDirs) : null;
 
   const aggMap = new Map();
+  const billNos = new Set();
   let matchedRowCount = 0;
   let totalFilteredQty = 0;
   let totalFilteredAmount = 0;
 
   for (const r of rows) {
-    if (feeTypeFilter && !feeTypeFilter.has(r.feeType)) continue;
-    if (invoiceDirFilter && !invoiceDirFilter.has(r.invoiceDir)) continue;
+    if (r.billNo) billNos.add(r.billNo);
+
+    // 费用类型筛选只作用于数量，发票方向筛选只作用于金额
+    const matchQty = feeTypeFilter ? feeTypeFilter.has(r.feeType) : true;
+    const matchAmount = invoiceDirFilter ? invoiceDirFilter.has(r.invoiceDir) : true;
+
+    // 两者都不满足则跳过
+    if (!matchQty && !matchAmount) continue;
 
     matchedRowCount++;
     const match = matchProductWithPreset(r.backendName, presetRows);
@@ -301,16 +312,19 @@ function calculateInvoiceSummary(rows = [], { selectedFeeTypes = [], selectedInv
     }
 
     const item = aggMap.get(key);
-    item.qty += r.qty;
-    item.amount += r.taxAmount;
+    if (matchQty) {
+      item.qty += r.qty;
+      totalFilteredQty += r.qty;
+    }
+    if (matchAmount) {
+      item.amount += r.taxAmount;
+      totalFilteredAmount += r.taxAmount;
+    }
     item.detailCount++;
     item.rawNames.add(r.backendName);
-
-    totalFilteredQty += r.qty;
-    totalFilteredAmount += r.taxAmount;
   }
 
-  // 排序与过滤无结算项
+  // 排序与过滤无结算项（数量非0 或 金额绝对值>=0.005）
   const items = Array.from(aggMap.values())
     .filter(item => item.qty !== 0 || Math.abs(item.amount) >= 0.005)
     .sort((a, b) => {
@@ -324,12 +338,16 @@ function calculateInvoiceSummary(rows = [], { selectedFeeTypes = [], selectedInv
       const unitPrice = finalQty !== 0 ? finalAmount / finalQty : 0;
       return {
         shortName: item.shortName,
+        productName: item.shortName, // 兼容组件属性名
         spec: item.spec,
         qty: finalQty,
         amount: finalAmount,
+        taxIncludedAmount: finalAmount, // 兼容组件属性名
         unitPrice: Number(unitPrice.toFixed(4)),
         matched: item.matched,
+        isPresetMatched: item.matched, // 兼容组件属性名
         detailCount: item.detailCount,
+        remark: `来源 ${item.detailCount} 行`,
         rawNames: Array.from(item.rawNames)
       };
     });
@@ -342,7 +360,9 @@ function calculateInvoiceSummary(rows = [], { selectedFeeTypes = [], selectedInv
     totalQty: finalTotalQty,
     totalAmount: finalTotalAmount,
     matchedRowCount,
-    productCount: items.length
+    rowCount: matchedRowCount,
+    productCount: items.length,
+    billCount: billNos.size
   };
 }
 
@@ -456,12 +476,16 @@ async function exportInvoiceNotificationWorkbook({ items = [], config = {}, outp
     dCell.border = thinBorder;
     dCell.numFmt = '#,##0';
 
-    // E: 单价公式 = F{row} / D{row}
+    // E: 单价公式 = F{row} / D{row}（数量非零时使用公式，零时置0避免#DIV/0!）
     const eCell = row.getCell(5);
-    eCell.value = {
-      formula: `F${currentRow}/D${currentRow}`,
-      result: item.unitPrice
-    };
+    if (item.qty !== 0) {
+      eCell.value = {
+        formula: `F${currentRow}/D${currentRow}`,
+        result: item.unitPrice
+      };
+    } else {
+      eCell.value = 0;
+    }
     eCell.font = { name: '微软雅黑', size: 12 };
     eCell.alignment = { horizontal: 'center', vertical: 'middle' };
     eCell.border = thinBorder;

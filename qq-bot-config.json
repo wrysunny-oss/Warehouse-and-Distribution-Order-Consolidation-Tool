@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "onebotHttpUrl": "http://127.0.0.1:3001",
+  "onebotWsUrl": "",
+  "webhookPath": "/qq",
+  "port": 3000,
+  "whiteListUsers": [],
+  "enableGroup": true,
+  "whiteListGroups": [],
+  "publicBaseUrl": ""
+}

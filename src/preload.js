@@ -3,16 +3,16 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('excelTool', {
-  openExcel: (type) => ipcRenderer.invoke('excel:open', type),
+  openExcel: (type, directPath) => ipcRenderer.invoke('excel:open', type, directPath),
   exportExcel: (payload) => ipcRenderer.invoke('excel:export', payload),
   openBackfillExcel: () => ipcRenderer.invoke('excel:backfill-open'),
   exportBackfill: (payload) => ipcRenderer.invoke('excel:backfill-export', payload),
   analyze: (payload) => ipcRenderer.invoke('summary:analyze', payload),
   compute: (payload) => ipcRenderer.invoke('summary:compute', payload),
-  openInventoryUpdateExcel: (type) => ipcRenderer.invoke('inventory-update:open', type),
+  openInventoryUpdateExcel: (type, directPaths) => ipcRenderer.invoke('inventory-update:open', type, directPaths),
   analyzeInventoryUpdate: (payload) => ipcRenderer.invoke('inventory-update:analyze', payload),
   exportInventoryUpdate: (payload) => ipcRenderer.invoke('inventory-update:export', payload),
-  openDeliveryExcel: (type) => ipcRenderer.invoke('delivery:open', type),
+  openDeliveryExcel: (type, directPath) => ipcRenderer.invoke('delivery:open', type, directPath),
   analyzeDelivery: (payload) => ipcRenderer.invoke('delivery:analyze', payload),
   exportDelivery: (payload) => ipcRenderer.invoke('delivery:export', payload),
   getProcurementConfig: (payload) => ipcRenderer.invoke('procurement:get-config', payload),
@@ -31,5 +31,11 @@ contextBridge.exposeInMainWorld('excelTool', {
   calculateInvoice: (payload) => ipcRenderer.invoke('invoice:calculate', payload),
   exportInvoice: (payload) => ipcRenderer.invoke('invoice:export', payload),
   getInvoiceConfig: () => ipcRenderer.invoke('invoice:get-config'),
-  saveInvoiceConfig: (config) => ipcRenderer.invoke('invoice:save-config', config)
+  saveInvoiceConfig: (config) => ipcRenderer.invoke('invoice:save-config', config),
+  openPlatformFeeFile: () => ipcRenderer.invoke('platform-fee:open-file'),
+  parsePlatformFeeFile: (filePath) => ipcRenderer.invoke('platform-fee:parse-file', filePath),
+  calculatePlatformFee: (payload) => ipcRenderer.invoke('platform-fee:calculate', payload),
+  exportPlatformFee: (payload) => ipcRenderer.invoke('platform-fee:export', payload),
+  getPlatformFeeConfig: () => ipcRenderer.invoke('platform-fee:get-config'),
+  savePlatformFeeConfig: (config) => ipcRenderer.invoke('platform-fee:save-config', config)
 });

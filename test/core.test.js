@@ -201,3 +201,95 @@ test('默认商品清单优先从表一按首次出现顺序去重，没有表�
   assert.deepEqual(productCatalogForBrand({ table1Rows, table2Rows, brand: '甲' }), ['商品B', '商品A']);
   assert.deepEqual(productCatalogForBrand({ table1Rows: [], table2Rows, brand: '甲' }), ['库存商品C', '库存商品D']);
 });
+
+test('自定义统计仓库按全局预设输出，并支持过滤与缺单补零', () => {
+  const configuredWarehouses = [
+    '华东杭州直营商超仓',
+    '华南广州直营商超A仓',
+    '华西成都直营商超仓'
+  ];
+  const result = aggregate({
+    table2Rows: inventory,
+    table1Rows: [
+      { '仓库名称': '华东杭州直营商超仓', '货品名称': PRODUCT_5KG, '品牌名称': '测试品牌', '采购数量': 50, '箱规': 1 },
+      { '仓库名称': '未纳入统计的测试仓', '货品名称': PRODUCT_5KG, '品牌名称': '测试品牌', '采购数量': 30, '箱规': 1 }
+    ],
+    brand: '测试品牌',
+    configuredWarehouses
+  });
+  assert.equal(result.stats.warehouseCount, 3);
+  assert.deepEqual(result.warehouses, configuredWarehouses);
+  assert.equal(result.stats.unresolvedOrders, 30); // 未纳入统计的仓作为未映射/未解析订单统计
+  const hzRow = result.rows.find((r) => r.warehouse === '华东杭州直营商超仓' && r.product === PRODUCT_5KG);
+  assert.equal(hzRow.systemOrder, 50);
+  const gzRow = result.rows.find((r) => r.warehouse === '华南广州直营商超A仓' && r.product === PRODUCT_5KG);
+  assert.equal(gzRow.systemOrder, 0); // 预设仓库缺单自动补零
+});
+
+test('自定义统计仓库支持传入对象数组并根据inStats/参与统计进行过滤', () => {
+  const configuredObjects = [
+    { warehouseName: '华东杭州直营商超仓', inStats: true },
+    { warehouseName: '华东合肥直营商超仓', inStats: false },
+    { warehouseName: '华南广州直营商超A仓', '参与统计': true }
+  ];
+  const result = aggregate({
+    table2Rows: inventory,
+    table1Rows: [],
+    brand: '测试品牌',
+    configuredWarehouses: configuredObjects
+  });
+  assert.equal(result.stats.warehouseCount, 2);
+  assert.deepEqual(result.warehouses, ['华东杭州直营商超仓', '华南广州直营商超A仓']);
+});
+
+test('国宝桥米品牌采用集货模式：仅统计武汉直营商超仓与武汉直营集货仓，集货仓汇总其余所有仓数据', () => {
+  const gbProduct = '国宝桥米大米5kg';
+  const gbInventory = [
+    {
+      '物理仓名称': '华中武汉直营商超仓', '货品名称': gbProduct, '品牌名称': '国宝桥米', '货品状态': '正常',
+      '在库良品库存件数': 40, '在库良品非锁定库存件数': 40, '最近30天出库件数': 50
+    },
+    {
+      '物理仓名称': '华东杭州直营商超仓', '货品名称': gbProduct, '品牌名称': '国宝桥米', '货品状态': '正常',
+      '在库良品库存件数': 20, '在库良品非锁定库存件数': 20, '最近30天出库件数': 30
+    },
+    {
+      '物理仓名称': '华南广州直营商超A仓', '货品名称': gbProduct, '品牌名称': '国宝桥米', '货品状态': '正常',
+      '在库良品库存件数': 10, '在库良品非锁定库存件数': 10, '最近30天出库件数': 20
+    },
+    {
+      '物理仓名称': '华中武汉直营集货仓', '货品名称': gbProduct, '品牌名称': '国宝桥米', '货品状态': '正常',
+      '在库良品库存件数': 5, '在库良品非锁定库存件数': 5, '最近30天出库件数': 0
+    }
+  ];
+
+  const gbOrders = [
+    { '仓库名称': '华中武汉直营商超仓', '货品名称': gbProduct, '品牌名称': '国宝桥米', '采购数量': 60, '箱规': 1 },
+    { '仓库名称': '华东杭州直营商超仓', '货品名称': gbProduct, '品牌名称': '国宝桥米', '采购数量': 35, '箱规': 1 },
+    { '仓库名称': '华南广州直营商超A仓', '货品名称': gbProduct, '品牌名称': '国宝桥米', '采购数量': 25, '箱规': 1 }
+  ];
+
+  const result = aggregate({
+    table2Rows: gbInventory,
+    table1Rows: gbOrders,
+    brand: '国宝桥米'
+  });
+
+  assert.equal(result.isHubMode, true);
+  assert.equal(result.stats.warehouseCount, 2);
+  assert.deepEqual(result.warehouses, ['华中武汉直营商超仓', '华中武汉直营集货仓']);
+
+  // 武汉商超仓：自身的订单 60，良品库存 40，出库 50
+  const scRow = result.rows.find((r) => r.warehouse === '华中武汉直营商超仓');
+  assert.ok(scRow);
+  assert.equal(scRow.systemOrder, 60);
+  assert.equal(scRow.availableGood, 40);
+  assert.equal(scRow.out30, 50);
+
+  // 武汉集货仓：其余所有仓之和（订单 35 + 25 = 60，良品库存 20 + 10 + 5 = 35，出库 30 + 20 + 0 = 50）
+  const jhRow = result.rows.find((r) => r.warehouse === '华中武汉直营集货仓');
+  assert.ok(jhRow);
+  assert.equal(jhRow.systemOrder, 60);
+  assert.equal(jhRow.availableGood, 35);
+  assert.equal(jhRow.out30, 50);
+});

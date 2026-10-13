@@ -37,6 +37,12 @@ test('对账单文件读取与字段提取', async () => {
 test('多文件解析与可用费用类型、发票方向提取', async () => {
   const result = await parseReconciliationFiles([SAMPLE_RECONCILIATION]);
   assert.equal(result.files.length, 1);
+  assert.ok(result.files[0].filePath);
+  assert.ok(result.files[0].fileName);
+  assert.ok(result.files[0].path);
+  assert.ok(result.files[0].name);
+  assert.ok(Array.isArray(result.rows) && result.rows.length > 0);
+  assert.ok(Array.isArray(result.rawRows) && result.rawRows.length > 0);
   assert.ok(result.availableFeeTypes.includes('货款'));
   assert.ok(result.availableFeeTypes.includes('88VIP用户权益折扣'));
   assert.ok(result.availableInvoiceDirs.includes('供应商开票(进项票)'));
@@ -80,7 +86,7 @@ test('根据费用类型和发票方向筛选计算商品开票汇总', async ()
   assert.equal(summaryAll.totalQty, 263);
   assert.equal(summaryAll.totalAmount, 7371.80);
 
-  // 2. 仅筛选货款
+  // 2. 费用类型仅筛选货款（费用类型筛选只作用于数量，发票方向筛选只作用于金额，金额保留全部供应商开票进项折扣）
   const summaryPaymentOnly = calculateInvoiceSummary(reconRows, {
     selectedFeeTypes: ['货款'],
     selectedInvoiceDirs: ['供应商开票(进项票)'],
@@ -89,7 +95,24 @@ test('根据费用类型和发票方向筛选计算商品开票汇总', async ()
 
   assert.equal(summaryPaymentOnly.productCount, 18);
   assert.equal(summaryPaymentOnly.totalQty, 137);
-  assert.equal(summaryPaymentOnly.totalAmount, 7666.10);
+  assert.equal(summaryPaymentOnly.totalAmount, 7371.80);
+
+  // 3. 验证发票方向对金额的筛选控制，费用类型对数量的筛选控制
+  const summaryNoFee = calculateInvoiceSummary(reconRows, {
+    selectedFeeTypes: [],
+    selectedInvoiceDirs: ['供应商开票(进项票)'],
+    presetRows
+  });
+  assert.equal(summaryNoFee.totalQty, 0, '未勾选费用类型时数量为0');
+  assert.equal(summaryNoFee.totalAmount, 7371.80, '未勾选费用类型不影响发票方向金额');
+
+  const summaryNoDir = calculateInvoiceSummary(reconRows, {
+    selectedFeeTypes: ['货款'],
+    selectedInvoiceDirs: [],
+    presetRows
+  });
+  assert.equal(summaryNoDir.totalQty, 137, '未勾选发票方向不影响费用类型数量');
+  assert.equal(summaryNoDir.totalAmount, 0, '未勾选发票方向时金额为0');
 });
 
 test('导出开票通知单 Excel 并校验版式、公式与开票信息', async () => {

@@ -1,0 +1,52 @@
+services:
+  # 1. 仓配订单汇总核心后台 (包含 Web 上传界面 + 5大计算引擎 + QQ 适配器)
+  excel-bot:
+    build: .
+    container_name: excel-bot-server
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+    volumes:
+      # 挂载共享会话与文件缓存（实现生成表格零拷贝极速直传）
+      - shared-sessions:/tmp/excel-bot-sessions
+      # 挂载配置文件（可在宿主机直接修改预设与参数，无需重新构建容器）
+      - ./product-preset.json:/app/product-preset.json
+      - ./warehouse-preset.json:/app/warehouse-preset.json
+      - ./qq-bot-config.json:/app/qq-bot-config.json
+      - ./wechat-bot-config.json:/app/wechat-bot-config.json
+    networks:
+      - bot-net
+
+  # 2. NapCat QQ 机器人网关容器 (官方镜像，内置 WebUI 扫码与 OneBot v11 协议)
+  napcat:
+    image: mlikiowa/napcat-docker:latest
+    container_name: napcat-qq
+    restart: always
+    ports:
+      # NapCat 网页控制台（在浏览器打开此端口进行扫码登录 QQ）
+      - "6099:6099"
+      # OneBot v11 HTTP/WS API 端口
+      - "3001:3001"
+    environment:
+      - NAPCAT_GID=0
+      - NAPCAT_UID=0
+    volumes:
+      # NapCat 数据持久化（保存 QQ 登录凭据，重启无需重新扫码）
+      - ./napcat-data:/app/napcat/config
+      - ./napcat-qq-data:/root/.config/QQ
+      # 与后台共享文件目录
+      - shared-sessions:/tmp/excel-bot-sessions
+    networks:
+      - bot-net
+    depends_on:
+      - excel-bot
+
+volumes:
+  shared-sessions:
+
+networks:
+  bot-net:
+    driver: bridge

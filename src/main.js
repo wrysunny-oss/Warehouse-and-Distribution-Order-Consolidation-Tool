@@ -43,6 +43,12 @@ const {
   exportInvoiceNotificationWorkbook,
   formatTodayDate
 } = require('./invoice-summary');
+const {
+  DEFAULT_FEE_CATEGORY_REMARKS,
+  parsePlatformFeeFile,
+  calculatePlatformFeeSummary,
+  exportPlatformFeeExcel
+} = require('./platform-fee');
 
 let mainWindow;
 const smokeTest = process.env.EXCEL_TOOL_SMOKE_TEST === '1';
@@ -147,30 +153,40 @@ function createWindow() {
     }
   });
   mainWindow.webContents.on('console-message', (e, level, message, line, sourceId) => { console.log('RENDERER_CONSOLE:', message, 'line:', line ?? e?.lineNumber, 'source:', sourceId ?? e?.sourceId); });
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  const distIndex = path.join(__dirname, 'renderer', 'dist', 'index.html');
+  if (fs.existsSync(distIndex)) {
+    mainWindow.loadFile(distIndex);
+  } else {
+    mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  }
   if (smokeTest) {
     mainWindow.webContents.once('did-finish-load', async () => {
       const targetView = process.env.EXCEL_TOOL_SMOKE_VIEW || 'summary';
       const smokeWidth = Number(process.env.EXCEL_TOOL_SMOKE_WIDTH || 0);
-      if (smokeWidth >= 1100) mainWindow.setSize(smokeWidth, 900);
       await new Promise((resolve) => setTimeout(resolve, 350));
-      const result = await mainWindow.webContents.executeJavaScript(`(() => {
-        if ('${targetView}' === 'delivery') document.getElementById('deliveryTab')?.click();
+      await mainWindow.webContents.executeJavaScript(`(() => {
+        if ('${targetView}' === 'delivery' || '${targetView}' === 'preset' || '${targetView}' === 'whPreset') document.getElementById('deliveryTab')?.click();
         if ('${targetView}' === 'inventory') document.getElementById('inventoryTab')?.click();
-        if ('${targetView}' === 'backfill') document.getElementById('backfillDialog')?.showModal();
+        if ('${targetView}' === 'invoice') document.getElementById('invoiceTab')?.click();
+      })()`);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await mainWindow.webContents.executeJavaScript(`(() => {
         if ('${targetView}' === 'preset') document.getElementById('manageProductPresetBtn')?.click();
         if ('${targetView}' === 'whPreset') document.getElementById('manageWarehousePresetBtn')?.click();
+      })()`);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const result = await mainWindow.webContents.executeJavaScript(`(() => {
+        const el = document.getElementById('productPresetDialog');
+        const rect = el ? el.getBoundingClientRect() : null;
+        const style = el ? window.getComputedStyle(el) : null;
         return {
           title: document.title,
-          hasImport: Boolean(document.getElementById('table2Btn')),
-          hasExport: Boolean(document.getElementById('exportBtn')),
-          hasDelivery: Boolean(document.getElementById('deliveryTab')),
-          hasInventoryUpdate: Boolean(document.getElementById('inventoryTab')),
-          deliveryVisible: !document.getElementById('deliveryView')?.classList.contains('hidden'),
-          inventoryVisible: !document.getElementById('inventoryView')?.classList.contains('hidden'),
-          backfillVisible: Boolean(document.getElementById('backfillDialog')?.open),
-          presetVisible: Boolean(document.getElementById('productPresetDialog')?.open),
-          whPresetVisible: Boolean(document.getElementById('warehousePresetDialog')?.open)
+          presetVisible: Boolean(el),
+          rect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null,
+          display: style?.display,
+          opacity: style?.opacity,
+          zIndex: style?.zIndex,
+          parent: el?.parentElement?.tagName
         };
       })()`);
       console.log('SMOKE_TEST', JSON.stringify(result));
@@ -185,7 +201,16 @@ function createWindow() {
   }
 }
 
-ipcMain.handle('excel:open', async (_event, type) => {
+ipcMain.handle('excel:open', async (_event, type, directFilePath) => {
+  if (directFilePath && fs.existsSync(directFilePath)) {
+    return readWorkbook(directFilePath, type);
+  }
+  if (process.env.EXCEL_TOOL_SMOKE_TEMPLATE2 && type === 'table2') {
+    return readWorkbook(process.env.EXCEL_TOOL_SMOKE_TEMPLATE2, 'table2');
+  }
+  if (process.env.EXCEL_TOOL_SMOKE_TEMPLATE1 && type === 'table1') {
+    return readWorkbook(process.env.EXCEL_TOOL_SMOKE_TEMPLATE1, 'table1');
+  }
   const result = await dialog.showOpenDialog(mainWindow, {
     title: type === 'table1' ? '选择表一（订单数据）' : '选择表二（库存数据）',
     properties: ['openFile'],
@@ -195,8 +220,11 @@ ipcMain.handle('excel:open', async (_event, type) => {
   return readWorkbook(result.filePaths[0], type);
 });
 
-ipcMain.handle('delivery:open', async (_event, type) => {
+ipcMain.handle('delivery:open', async (_event, type, directFilePath) => {
   const isProduct = type === 'product';
+  if (directFilePath && fs.existsSync(directFilePath)) {
+    return readDeliveryWorkbook(directFilePath, isProduct ? 'product' : 'receipt');
+  }
   const result = await dialog.showOpenDialog(mainWindow, {
     title: isProduct ? '选择 product 商品表' : '选择 ReceiptNote 入库明细',
     properties: ['openFile'],
@@ -206,20 +234,26 @@ ipcMain.handle('delivery:open', async (_event, type) => {
   return readDeliveryWorkbook(result.filePaths[0], isProduct ? 'product' : 'receipt');
 });
 
-ipcMain.handle('delivery:analyze', (_event, payload) => analyzeDeliveryData(payload));
+ipcMain.handle('delivery:analyze', (_event, payload) => {
+  const productRows = payload?.productRows || (Array.isArray(payload?.product) ? payload.product : payload?.product?.rows) || [];
+  const receiptRows = payload?.receiptRows || payload?.receipt?.rows || [];
+  return analyzeDeliveryData({ productRows, receiptRows });
+});
 
 ipcMain.handle('delivery:export', async (_event, payload) => {
-  const selectedBrands = [...new Set((payload.brands || []).map(cleanText).filter(Boolean))];
+  const selectedBrands = [...new Set((payload?.brands || payload?.selectedBrands || []).map(cleanText).filter(Boolean))];
   if (!selectedBrands.length) throw new Error('请至少选择一个品牌。');
   if (!cleanText(payload.supplierName)) throw new Error('请填写供应商名称。');
   const shelfLife = Number(cleanText(payload.shelfLife));
   if (!Number.isInteger(shelfLife) || shelfLife <= 0) throw new Error('保质期必须填写正整数天数。');
   if (!cleanText(payload.contact)) throw new Error('请填写联系方式。');
 
-  const selectedWarehouses = [...new Set((payload.warehouses || []).map(cleanText).filter(Boolean))];
+  const selectedWarehouses = [...new Set((payload?.warehouses || payload?.selectedWarehouses || []).map(cleanText).filter(Boolean))];
   if (!selectedWarehouses.length) throw new Error('请至少选择一个仓库。');
-  const selectedReceiptRows = (payload.receiptRows || []).filter((row) => selectedWarehouses.includes(cleanText(row['仓库名称'])));
-  const analysis = analyzeDeliveryData({ productRows: payload.productRows || [], receiptRows: selectedReceiptRows });
+  const allReceiptRows = payload?.receiptRows || payload?.receipt?.rows || [];
+  const selectedReceiptRows = allReceiptRows.filter((row) => selectedWarehouses.includes(cleanText(row['仓库名称'])));
+  const productRows = payload?.productRows || (Array.isArray(payload?.product) ? payload.product : payload?.product?.rows) || [];
+  const analysis = analyzeDeliveryData({ productRows, receiptRows: selectedReceiptRows });
   const selectedBarcodes = new Set(selectedReceiptRows.map((row) => cleanCode(row['条形码'])));
   const selectedConflicts = analysis.barcodeConflicts.filter((item) => selectedBarcodes.has(item.barcode) && (item.brands || []).some((brand) => selectedBrands.includes(brand)));
   if (selectedConflicts.length) throw new Error(`选中品牌中有 ${selectedConflicts.length} 个条码对应多个商品，请先修复。`);
@@ -283,35 +317,51 @@ ipcMain.handle('summary:analyze', (_event, payload) => {
 });
 
 ipcMain.handle('summary:compute', (_event, payload) => aggregate(payload));
-ipcMain.handle('inventory-update:open', async (_event, type) => {
+ipcMain.handle('inventory-update:open', async (_event, type, directPaths) => {
   const isTable3 = type === 'table3';
   const isTransit = type === 'transit';
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: isTable3 ? '选择需要更新的旧表三' : isTransit ? '选择库存在途明细' : '选择实时库存表',
-    properties: isTable3 || isTransit ? ['openFile'] : ['openFile', 'multiSelections'],
-    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx', 'xlsm'] }]
-  });
-  if (result.canceled || !result.filePaths.length) return null;
-  const files = await Promise.all(result.filePaths.map(async (filePath) => ({
+  let targetPaths = [];
+  if (directPaths) {
+    targetPaths = (Array.isArray(directPaths) ? directPaths : [directPaths]).filter((p) => p && fs.existsSync(p));
+  }
+  if (!targetPaths.length) {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: isTable3 ? '选择需要更新的旧表三' : isTransit ? '选择库存在途明细' : '选择实时库存表',
+      properties: isTable3 || isTransit ? ['openFile'] : ['openFile', 'multiSelections'],
+      filters: [{ name: 'Excel 工作簿', extensions: ['xlsx', 'xlsm'] }]
+    });
+    if (result.canceled || !result.filePaths.length) return null;
+    targetPaths = result.filePaths;
+  }
+  const files = await Promise.all(targetPaths.map(async (filePath) => ({
     ...(await inspectWorkbook(filePath, isTable3 ? 'table3' : isTransit ? 'transit' : 'inventory')),
     fileName: path.basename(filePath)
   })));
   return isTable3 || isTransit ? files[0] : files;
 });
+function extractInventoryPayloadPaths(payload) {
+  const table3Path = cleanText(payload?.table3Path || payload?.table3?.filePath || (typeof payload?.table3 === 'string' ? payload.table3 : ''));
+  const rawInventories = payload?.inventoryPaths || payload?.inventories || [];
+  const inventoryPaths = [...new Set(
+    (Array.isArray(rawInventories) ? rawInventories : [rawInventories])
+      .map((item) => cleanText(item?.filePath || item))
+      .filter(Boolean)
+  )];
+  const transitPath = cleanText(payload?.transitPath || payload?.transit?.filePath || (typeof payload?.transit === 'string' ? payload.transit : ''));
+  return { table3Path, inventoryPaths, transitPath };
+}
+
 ipcMain.handle('inventory-update:analyze', async (_event, payload) => {
-  const table3Path = cleanText(payload?.table3Path);
-  const inventoryPaths = [...new Set((payload?.inventoryPaths || []).map(cleanText).filter(Boolean))];
-  const transitPath = cleanText(payload?.transitPath);
+  const { table3Path, inventoryPaths, transitPath } = extractInventoryPayloadPaths(payload);
   if (!table3Path || !fs.existsSync(table3Path)) throw new Error('旧表三不存在，请重新选择文件。');
   if (!inventoryPaths.length && !transitPath) throw new Error('实时库存和库存在途明细请至少选择一种。');
   if (inventoryPaths.some((filePath) => !fs.existsSync(filePath))) throw new Error('部分实时库存表不存在，请重新选择文件。');
   if (transitPath && !fs.existsSync(transitPath)) throw new Error('库存在途明细不存在，请重新选择文件。');
   return analyzeInventoryUpdate(table3Path, inventoryPaths, transitPath);
 });
+
 ipcMain.handle('inventory-update:export', async (_event, payload) => {
-  const table3Path = cleanText(payload?.table3Path);
-  const inventoryPaths = [...new Set((payload?.inventoryPaths || []).map(cleanText).filter(Boolean))];
-  const transitPath = cleanText(payload?.transitPath);
+  const { table3Path, inventoryPaths, transitPath } = extractInventoryPayloadPaths(payload);
   if (!table3Path || !fs.existsSync(table3Path)) throw new Error('旧表三不存在，请重新选择文件。');
   if (!inventoryPaths.length && !transitPath) throw new Error('实时库存和库存在途明细请至少选择一种。');
   if (inventoryPaths.some((filePath) => !fs.existsSync(filePath))) throw new Error('部分实时库存表不存在，请重新选择文件。');
@@ -642,8 +692,8 @@ ipcMain.handle('invoice:parse-files', async (_event, filePaths) => {
 
 ipcMain.handle('invoice:calculate', async (_event, payload) => {
   const rows = payload?.rows || [];
-  const selectedFeeTypes = payload?.selectedFeeTypes || [];
-  const selectedInvoiceDirs = payload?.selectedInvoiceDirs || [];
+  const selectedFeeTypes = payload?.selectedFeeTypes;
+  const selectedInvoiceDirs = payload?.selectedInvoiceDirs;
   const preset = await loadProductPreset();
   return calculateInvoiceSummary(rows, {
     selectedFeeTypes,
@@ -679,6 +729,83 @@ ipcMain.handle('invoice:get-config', async () => {
 
 ipcMain.handle('invoice:save-config', async (_event, config) => {
   return writeStoredInvoiceConfig(config);
+});
+
+function getPlatformFeeConfigPath() {
+  try {
+    return path.join(app.getPath('userData'), 'platform-fee-config.json');
+  } catch {
+    return path.join(__dirname, '..', 'platform-fee-config.json');
+  }
+}
+
+function readStoredPlatformFeeConfig() {
+  const cfgPath = getPlatformFeeConfigPath();
+  if (fs.existsSync(cfgPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return { categoryRemarks: DEFAULT_FEE_CATEGORY_REMARKS, ...data };
+    } catch {}
+  }
+  return { categoryRemarks: DEFAULT_FEE_CATEGORY_REMARKS };
+}
+
+function writeStoredPlatformFeeConfig(config) {
+  const cfgPath = getPlatformFeeConfigPath();
+  try {
+    fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+    fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+ipcMain.handle('platform-fee:open-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择开票流水单据列表（Excel 或 CSV）',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Excel / CSV 文件', extensions: ['xlsx', 'xlsm', 'xls', 'csv'] }
+    ]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('platform-fee:parse-file', async (_event, filePath) => {
+  return parsePlatformFeeFile(filePath);
+});
+
+ipcMain.handle('platform-fee:calculate', async (_event, payload) => {
+  const rows = payload?.rows || [];
+  const options = payload?.options || {};
+  return calculatePlatformFeeSummary(rows, options);
+});
+
+ipcMain.handle('platform-fee:export', async (_event, payload) => {
+  const summaryResult = payload?.summaryResult;
+  const rawRows = payload?.rawRows || [];
+  const defaultFileName = cleanText(payload?.defaultFileName) ||
+    `${summaryResult?.buyerShortName || '国宝'} 猫超平台费用明细_${summaryResult?.periodText || formatTodayDate()}.xlsx`;
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: '导出天猫平台费用明细汇总与核销表',
+    defaultPath: defaultFileName,
+    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }]
+  });
+  if (result.canceled || !result.filePath) return null;
+
+  await exportPlatformFeeExcel(summaryResult, result.filePath, rawRows);
+  return { ok: true, filePath: result.filePath, totalAmount: summaryResult.totalAmount };
+});
+
+ipcMain.handle('platform-fee:get-config', async () => {
+  return readStoredPlatformFeeConfig();
+});
+
+ipcMain.handle('platform-fee:save-config', async (_event, config) => {
+  return writeStoredPlatformFeeConfig(config);
 });
 
 app.whenReady().then(() => {

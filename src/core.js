@@ -136,7 +136,23 @@ function collectMappingRows(table1Rows, brand, targets, currentMapping = {}) {
     .sort((a, b) => a.source.localeCompare(b.source, 'zh-CN'));
 }
 
-function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actualOrders = {}, configuredProducts = [] }) {
+function isHubConsolidationBrand(brandName) {
+  const clean = cleanText(brandName);
+  if (!clean) return false;
+  return clean.includes('国宝');
+}
+
+function isWuhanSupermarketWarehouse(name) {
+  const n = cleanText(name);
+  return n.includes('武汉') && n.includes('商超') && !n.includes('返退') && !n.includes('集货');
+}
+
+function isWuhanHubWarehouse(name) {
+  const n = cleanText(name);
+  return n.includes('武汉') && n.includes('集货');
+}
+
+function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actualOrders = {}, configuredProducts = [], configuredWarehouses = [], isHubMode: explicitHubMode }) {
   const selectedBrand = cleanText(brand);
   const brandedInventoryRows = table2Rows.filter((row) => cleanText(row['品牌名称']) === selectedBrand);
   const hasWarehouseRole = brandedInventoryRows.some((row) => cleanText(row['仓角色名称']));
@@ -149,6 +165,154 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
     .sort((a, b) => a.localeCompare(b, 'zh-CN'));
   const products = productCatalogForBrand({ table1Rows, table2Rows, brand: selectedBrand, configuredProducts });
 
+  const isHubMode = explicitHubMode !== undefined
+    ? Boolean(explicitHubMode)
+    : isHubConsolidationBrand(selectedBrand);
+
+  if (isHubMode) {
+    const WUHAN_SC = '华中武汉直营商超仓';
+    const WUHAN_JH = '华中武汉直营集货仓';
+    const outputWarehouses = [WUHAN_SC, WUHAN_JH];
+    const productCatalog = new Map(products.map((product) => [normalizedProduct(product), { product, boxSpec: Math.max(1, parseBoxSpec(product)) }]));
+    const orderTotals = new Map();
+
+    if (orderRows.length) {
+      for (const source of orderRows) {
+        const sourceWarehouse = table1Warehouse(source);
+        const product = cleanText(source['货品名称']);
+        if (!sourceWarehouse || !product) continue;
+        const productToken = normalizedProduct(product);
+        const amount = table1Order(source);
+
+        const mappedTarget = mapping[sourceWarehouse];
+        const isSC = (mappedTarget && isWuhanSupermarketWarehouse(mappedTarget)) || isWuhanSupermarketWarehouse(sourceWarehouse);
+        const targetWarehouse = isSC ? WUHAN_SC : WUHAN_JH;
+
+        const catalogItem = productCatalog.get(productToken);
+        if (catalogItem) {
+          const sourceBoxSpec = numberValue(source['箱规']);
+          if (sourceBoxSpec > 0) catalogItem.boxSpec = Math.max(1, sourceBoxSpec);
+        }
+
+        const orderKey = `${targetWarehouse}\u0000${productToken}`;
+        orderTotals.set(orderKey, (orderTotals.get(orderKey) || 0) + amount);
+      }
+    }
+
+    const inventoryBuckets = new Map();
+    for (const source of inventoryRows) {
+      const wh = cleanText(source['物理仓名称']);
+      const product = cleanText(source['货品名称']);
+      if (!wh || !product) continue;
+      const productToken = normalizedProduct(product);
+
+      const isSC = isWuhanSupermarketWarehouse(wh);
+      const targetWarehouse = isSC ? WUHAN_SC : WUHAN_JH;
+
+      const key = `${targetWarehouse}\u0000${productToken}`;
+      if (!inventoryBuckets.has(key)) inventoryBuckets.set(key, []);
+      inventoryBuckets.get(key).push(source);
+    }
+
+    const rows = [];
+    const summaries = [];
+    for (const warehouse of outputWarehouses) {
+      const warehouseRows = [];
+      for (const product of products) {
+        const productToken = normalizedProduct(product);
+        const catalogItem = productCatalog.get(productToken) || { product, boxSpec: Math.max(1, parseBoxSpec(product)) };
+        const boxSpec = catalogItem.boxSpec;
+        const id = `${warehouse}\u0000${productToken}`;
+        const systemOrder = orderTotals.get(id) || 0;
+
+        const sources = inventoryBuckets.get(id) || [];
+        const first = sources[0] || {};
+        const sum = (field) => sources.reduce((total, row) => total + numberValue(row[field]), 0);
+        const spec = parseSpec(product);
+        const availableGood = sum('在库良品库存件数');
+        const nonLocked = sum('在库良品非锁定库存件数');
+        const out1 = sum('最近1天出库件数');
+        const out7 = sum('最近7天出库件数');
+        const out14 = sum('最近14天出库件数');
+        const out30 = sum('最近30天出库件数');
+        const aged = sum('高库龄件数');
+        const turnover = sum('高周转件数');
+
+        const forecast30 = out30 * 0.5 + (out7 / 7 * 30) * 0.3 + (out1 * 30) * 0.2;
+        const targetStock = forecast30 * 0.8;
+        const replenishmentNeed = Math.max(0, targetStock - availableGood);
+        const roundedNeed = replenishmentNeed > 0 ? Math.ceil(replenishmentNeed / boxSpec) * boxSpec : 0;
+        const orderCapacity = Math.floor(systemOrder / boxSpec) * boxSpec;
+        const suggestedActual = hasOrderLimit ? Math.min(orderCapacity, roundedNeed) : roundedNeed;
+        const hasOverride = Object.prototype.hasOwnProperty.call(actualOrders, id);
+        const overridden = Math.floor(Math.max(0, numberValue(actualOrders[id])) / boxSpec) * boxSpec;
+        const actualOrder = hasOverride ? (hasOrderLimit ? Math.min(orderCapacity, overridden) : overridden) : suggestedActual;
+        const manualRequest = hasOrderLimit ? (systemOrder === 0 ? roundedNeed : Math.max(0, roundedNeed - orderCapacity)) : 0;
+
+        const row = {
+          id,
+          warehouse,
+          product,
+          brand: selectedBrand,
+          status: sources.length ? cleanText(first['货品状态']) || '正常' : '未入仓',
+          spec,
+          boxSpec,
+          aged,
+          turnover,
+          availableGood,
+          nonLocked,
+          out1,
+          out7,
+          out14,
+          out30,
+          forecast30,
+          targetStock,
+          replenishmentNeed,
+          roundedNeed,
+          systemOrder,
+          hasOrderLimit,
+          weight: systemOrder * spec / 1000,
+          suggestedActual,
+          actualOrder,
+          actualWeight: actualOrder * spec / 1000,
+          manualRequest,
+          arrangement: ''
+        };
+        warehouseRows.push(row);
+        rows.push(row);
+      }
+
+      const summaryActual = warehouseRows.reduce((sum, row) => sum + row.actualOrder, 0);
+      summaries.push({
+        warehouse,
+        systemOrder: warehouseRows.reduce((sum, row) => sum + row.systemOrder, 0),
+        weight: warehouseRows.reduce((sum, row) => sum + row.weight, 0),
+        actualOrder: summaryActual,
+        actualWeight: warehouseRows.reduce((sum, row) => sum + row.actualWeight, 0),
+        arrangement: ''
+      });
+    }
+
+    return {
+      rows,
+      summaries,
+      warehouses: outputWarehouses,
+      products,
+      unresolved: [],
+      isHubMode: true,
+      stats: {
+        detailRows: rows.length,
+        warehouseCount: outputWarehouses.length,
+        productCount: products.length,
+        systemOrders: rows.reduce((sum, row) => sum + row.systemOrder, 0),
+        weight: rows.reduce((sum, row) => sum + row.weight, 0),
+        actualOrders: rows.reduce((sum, row) => sum + row.actualOrder, 0),
+        manualRequestRows: rows.filter((row) => row.systemOrder === 0 && row.roundedNeed > 0).length,
+        unresolvedOrders: 0
+      }
+    };
+  }
+
   const inventory = new Map();
   for (const source of inventoryRows) {
     const warehouse = cleanText(source['物理仓名称']);
@@ -158,10 +322,82 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
     inventory.get(key).push(source);
   }
 
+  const statsWarehouseList = Array.isArray(configuredWarehouses)
+    ? configuredWarehouses
+        .map((w) => {
+          if (typeof w === 'string') return cleanText(w);
+          if (w && typeof w === 'object') {
+            if (w.inStats === false || w['参与统计'] === false) return '';
+            return cleanText(w.warehouseName || w['仓库名称'] || w.warehouse);
+          }
+          return '';
+        })
+        .filter(Boolean)
+    : [];
+
   const unresolved = new Map();
   const outputGroups = new Map();
 
-  if (orderRows.length) {
+  if (statsWarehouseList.length > 0) {
+    const productCatalog = new Map(products.map((product) => [normalizedProduct(product), { product, boxSpec: Math.max(1, parseBoxSpec(product)) }]));
+    const orderTotals = new Map();
+
+    if (orderRows.length) {
+      for (const source of orderRows) {
+        const sourceWarehouse = table1Warehouse(source);
+        const product = cleanText(source['货品名称']);
+        if (!sourceWarehouse || !product) continue;
+        const productToken = normalizedProduct(product);
+        const amount = table1Order(source);
+
+        let targetWarehouse = mapping[sourceWarehouse];
+        if (!targetWarehouse) {
+          if (statsWarehouseList.includes(sourceWarehouse)) {
+            targetWarehouse = sourceWarehouse;
+          } else {
+            targetWarehouse = suggestWarehouse(sourceWarehouse, statsWarehouseList);
+          }
+        }
+        if (!targetWarehouse) {
+          const suggestedInv = suggestWarehouse(sourceWarehouse, warehouses);
+          if (suggestedInv && statsWarehouseList.includes(suggestedInv)) {
+            targetWarehouse = suggestedInv;
+          }
+        }
+
+        if (!targetWarehouse || !statsWarehouseList.includes(targetWarehouse)) {
+          if (amount) unresolved.set(sourceWarehouse, (unresolved.get(sourceWarehouse) || 0) + amount);
+          continue;
+        }
+
+        const catalogItem = productCatalog.get(productToken);
+        if (catalogItem) {
+          const sourceBoxSpec = numberValue(source['箱规']);
+          if (sourceBoxSpec > 0) catalogItem.boxSpec = Math.max(1, sourceBoxSpec);
+        }
+
+        const orderKey = `${targetWarehouse}\u0000${productToken}`;
+        orderTotals.set(orderKey, (orderTotals.get(orderKey) || 0) + amount);
+      }
+    }
+
+    const catalog = products.map((product) => [normalizedProduct(product), productCatalog.get(normalizedProduct(product))]);
+
+    for (const warehouse of statsWarehouseList) {
+      const invWarehouse = warehouses.includes(warehouse)
+        ? warehouse
+        : (mapping[warehouse] || suggestWarehouse(warehouse, warehouses) || warehouse);
+
+      outputGroups.set(warehouse, catalog.map(([productToken, item]) => ({
+        id: `${warehouse}\u0000${productToken}`,
+        warehouse,
+        inventoryWarehouse: invWarehouse,
+        product: item.product,
+        systemOrder: orderTotals.get(`${warehouse}\u0000${productToken}`) || 0,
+        boxSpec: item.boxSpec
+      })));
+    }
+  } else if (orderRows.length) {
     const productCatalog = new Map(products.map((product) => [normalizedProduct(product), { product, boxSpec: Math.max(1, parseBoxSpec(product)) }]));
     const warehouseTargets = new Map();
     const orderTotals = new Map();
@@ -209,7 +445,9 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
     }
   }
 
-  const outputWarehouses = [...outputGroups.keys()].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  const outputWarehouses = statsWarehouseList.length
+    ? statsWarehouseList
+    : [...outputGroups.keys()].sort((a, b) => a.localeCompare(b, 'zh-CN'));
   const rows = [];
   const summaries = [];
   for (const warehouse of outputWarehouses) {
@@ -303,5 +541,6 @@ function aggregate({ table2Rows = [], table1Rows = [], brand, mapping = {}, actu
 
 module.exports = {
   TABLE1_NEW_REQUIRED, TABLE1_OLD_REQUIRED, TABLE2_REQUIRED, FIXED_PRODUCTS, cleanText, numberValue, parseSpec, parseBoxSpec,
-  orderHeader, validateTable, getBrands, suggestWarehouse, collectMappingRows, productCatalogForBrand, aggregate
+  orderHeader, validateTable, getBrands, suggestWarehouse, collectMappingRows, productCatalogForBrand, aggregate,
+  isHubConsolidationBrand, isWuhanSupermarketWarehouse, isWuhanHubWarehouse
 };
