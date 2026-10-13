@@ -117,7 +117,10 @@ class QqBotAdapter {
     const uniqueCandidates = [...new Set(candidates)];
     for (const httpBase of uniqueCandidates) {
       try {
-        const url = `${httpBase.replace(/\/+$/, '')}/${action}`;
+        let url = `${httpBase.replace(/\/+$/, '')}/${action}`;
+        if (this.config.onebotToken) {
+          url += (url.includes('?') ? '&' : '?') + `access_token=${encodeURIComponent(this.config.onebotToken)}`;
+        }
         const res = await fetch(url, {
           method: 'POST',
           headers,

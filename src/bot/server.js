@@ -676,9 +676,9 @@ class WechatBotServer {
       }
 
       // 自动从 NapCat 请求头同步 Token（实现全自动免配）
-      const auth = req.headers['authorization'];
-      if (auth && auth.startsWith('Bearer ')) {
-        const token = auth.slice(7).trim();
+      const auth = req.headers['authorization'] || req.headers['x-token'] || req.headers['token'] || req.headers['x-access-token'];
+      if (auth) {
+        const token = String(auth).replace(/^Bearer\s+/i, '').trim();
         if (token) {
           this.qqAdapter.config.onebotToken = token;
         }
