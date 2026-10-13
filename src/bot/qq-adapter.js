@@ -122,15 +122,16 @@ class QqBotAdapter {
           method: 'POST',
           headers,
           body: JSON.stringify(params),
-          signal: AbortSignal.timeout(600)
+          signal: AbortSignal.timeout(3000)
         });
         if (res.ok) {
           // 记录成功的地址以加速后续调用
           this.config.onebotHttpUrl = httpBase;
           return await res.json();
         }
+        console.warn(`[QQBot] 尝试 ${httpBase}/${action} 响应 HTTP ${res.status}`);
       } catch (err) {
-        // 尝试下一个候选地址
+        console.warn(`[QQBot] 尝试 ${httpBase}/${action} 失败: ${err.message}`);
       }
     }
     console.warn(`[QQBot] 调用 API ${action} 失败，已尝试所有候选地址:`, uniqueCandidates);
