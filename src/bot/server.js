@@ -675,6 +675,15 @@ class WechatBotServer {
         return;
       }
 
+      // 自动从 NapCat 请求头同步 Token（实现全自动免配）
+      const auth = req.headers['authorization'];
+      if (auth && auth.startsWith('Bearer ')) {
+        const token = auth.slice(7).trim();
+        if (token) {
+          this.qqAdapter.config.onebotToken = token;
+        }
+      }
+
       const result = await this.qqAdapter.handleOneBotEvent(event);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ status: 'ok', result }));

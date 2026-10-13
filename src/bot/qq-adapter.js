@@ -98,26 +98,42 @@ class QqBotAdapter {
   }
 
   /**
-   * 调用 OneBot API (优先 HTTP，可选 WS)
+   * 调用 OneBot API (优先 HTTP，智能尝试 NapCat 容器地址，可选 WS)
    */
   async callOneBotApi(action, params = {}) {
-    const httpBase = this.config.onebotHttpUrl;
-    if (httpBase) {
+    const candidates = [
+      this.config.onebotHttpUrl,
+      'http://napcat:3001',
+      'http://napcat-qq:3001',
+      'http://172.17.0.1:3001',
+      'http://127.0.0.1:3001'
+    ].filter(Boolean);
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (this.config.onebotToken) {
+      headers['Authorization'] = `Bearer ${this.config.onebotToken}`;
+    }
+
+    const uniqueCandidates = [...new Set(candidates)];
+    for (const httpBase of uniqueCandidates) {
       try {
         const url = `${httpBase.replace(/\/+$/, '')}/${action}`;
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(params)
+          headers,
+          body: JSON.stringify(params),
+          signal: AbortSignal.timeout(600)
         });
         if (res.ok) {
+          // 记录成功的地址以加速后续调用
+          this.config.onebotHttpUrl = httpBase;
           return await res.json();
         }
-        console.warn(`[QQBot] API ${action} HTTP 响应错误: ${res.status}`);
       } catch (err) {
-        console.warn(`[QQBot] HTTP 调用 API ${action} 失败:`, err.message);
+        // 尝试下一个候选地址
       }
     }
+    console.warn(`[QQBot] 调用 API ${action} 失败，已尝试所有候选地址:`, uniqueCandidates);
 
     // 备用：通过 WS 发送
     if (this.wsClient && this.wsClient.readyState === 1) {

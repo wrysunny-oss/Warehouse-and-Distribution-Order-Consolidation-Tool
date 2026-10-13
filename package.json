@@ -13,7 +13,7 @@
     "dev": "vite build --watch",
     "start": "vite build && electron .",
     "test": "node --test",
-    "test:qq": "node scripts/test-qq-local.js",
+    "test:qq": "node scripts/mock-qq.js",
     "bot": "node src/bot/server.js",
     "pack": "vite build && electron-builder --dir",
     "dist:fast": "vite build && electron-builder --win nsis -c.compression=store",
