@@ -115,6 +115,7 @@ class QqBotAdapter {
     }
 
     const uniqueCandidates = [...new Set(candidates)];
+    const timeoutMs = /^(get_file|get_.*_file.*|upload_.*_file.*)$/i.test(action) ? 15000 : 5000;
     for (const httpBase of uniqueCandidates) {
       try {
         let url = `${httpBase.replace(/\/+$/, '')}/${action}`;
@@ -125,7 +126,7 @@ class QqBotAdapter {
           method: 'POST',
           headers,
           body: JSON.stringify(params),
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(timeoutMs)
         });
         if (res.ok) {
           // 记录成功的地址以加速后续调用
@@ -198,31 +199,62 @@ class QqBotAdapter {
   /**
    * 从 OneBot 消息段或字段中提取文件信息
    */
-  extractFileInfo(message) {
-    if (!message) return null;
+  extractFileInfo(message, event = null) {
+    if (!message && !event) return null;
 
     if (Array.isArray(message)) {
       for (const seg of message) {
         if (seg.type === 'file' && seg.data) {
+          const rawFile = seg.data.file;
+          const fileId = seg.data.file_id || seg.data.id || (typeof rawFile === 'string' && !rawFile.startsWith('http') && !rawFile.includes('/') && !rawFile.includes('\\') ? rawFile : null);
           return {
-            name: seg.data.file_name || seg.data.name || seg.data.file,
-            url: seg.data.url,
-            path: seg.data.path || (fs.existsSync(seg.data.file) ? seg.data.file : null),
-            size: seg.data.file_size || seg.data.size
+            name: seg.data.file_name || seg.data.name || (rawFile ? path.basename(rawFile) : null),
+            url: seg.data.url || null,
+            file_id: fileId,
+            file: rawFile || null,
+            path: seg.data.path || (rawFile && fs.existsSync(rawFile) ? rawFile : null),
+            size: seg.data.file_size || seg.data.size || null,
+            busid: seg.data.busid || null
           };
         }
       }
     }
 
     if (typeof message === 'string') {
-      const match = message.match(/\[CQ:file,file=([^,\]]+)(?:,url=([^,\]]+))?(?:,file_name=([^,\]]+))?/);
+      const match = message.match(/\[CQ:file,([^\]]+)\]/);
       if (match) {
+        const paramsStr = match[1];
+        const params = {};
+        for (const part of paramsStr.split(',')) {
+          const [k, ...v] = part.split('=');
+          if (k) params[k] = v.join('=');
+        }
+        const rawFile = params.file;
+        const fileId = params.file_id || params.id || (rawFile && !rawFile.startsWith('http') && !rawFile.includes('/') && !rawFile.includes('\\') ? rawFile : null);
         return {
-          name: match[3] || match[1],
-          url: match[2] || null,
-          path: fs.existsSync(match[1]) ? match[1] : null
+          name: params.file_name || params.name || (rawFile ? path.basename(rawFile) : null),
+          url: params.url || null,
+          file_id: fileId,
+          file: rawFile || null,
+          path: params.path || (rawFile && fs.existsSync(rawFile) ? rawFile : null),
+          size: params.file_size || params.size || null,
+          busid: params.busid || null
         };
       }
+    }
+
+    // 从 notice 事件中的 file 对象提取
+    if (event && event.file) {
+      const ef = event.file;
+      return {
+        name: ef.name || ef.file_name || (ef.file ? path.basename(ef.file) : null),
+        url: ef.url || null,
+        file_id: ef.file_id || ef.id || ef.file,
+        file: ef.file || ef.id || null,
+        path: ef.path || (ef.file && fs.existsSync(ef.file) ? ef.file : null),
+        size: ef.size || ef.file_size || null,
+        busid: ef.busid || null
+      };
     }
 
     return null;
@@ -248,12 +280,12 @@ class QqBotAdapter {
   /**
    * 确保将 OneBot 传入的文件拉取/保存到本地供业务引擎使用
    */
-  async downloadOrResolveFile(fileInfo, targetDir) {
+  async downloadOrResolveFile(fileInfo, targetDir, context = {}) {
     fs.mkdirSync(targetDir, { recursive: true });
     const fileName = fileInfo.name || `qq_file_${Date.now()}.xlsx`;
     const destPath = path.join(targetDir, fileName);
 
-    // 1. 本地路径直接存在 (NapCat 本地运行模式或 Docker 挂载)
+    // 1. 本地路径直接存在 (NapCat 本地运行模式或 Docker 共享卷挂载)
     if (fileInfo.path && fs.existsSync(fileInfo.path)) {
       if (fileInfo.path !== destPath) {
         fs.copyFileSync(fileInfo.path, destPath);
@@ -261,25 +293,114 @@ class QqBotAdapter {
       return destPath;
     }
 
+    if (fileInfo.file && fs.existsSync(fileInfo.file)) {
+      if (fileInfo.file !== destPath) {
+        fs.copyFileSync(fileInfo.file, destPath);
+      }
+      return destPath;
+    }
+
     // 2. 具备下载 URL
     if (fileInfo.url) {
-      console.log(`[QQBot] 正在下载 QQ 传入文件: ${fileName}`);
-      const res = await fetch(fileInfo.url);
-      if (!res.ok) {
-        throw new Error(`下载文件失败，HTTP ${res.status}`);
+      console.log(`[QQBot] 正在通过 URL 下载 QQ 传入文件: ${fileName}`);
+      try {
+        const res = await fetch(fileInfo.url);
+        if (res.ok) {
+          const buffer = Buffer.from(await res.arrayBuffer());
+          fs.writeFileSync(destPath, buffer);
+          return destPath;
+        }
+        console.warn(`[QQBot] URL 直接下载失败 (HTTP ${res.status})，准备尝试 OneBot API 获取`);
+      } catch (err) {
+        console.warn(`[QQBot] URL 下载异常: ${err.message}，准备尝试 OneBot API 获取`);
       }
-      const buffer = Buffer.from(await res.arrayBuffer());
-      fs.writeFileSync(destPath, buffer);
-      return destPath;
     }
 
-    // 3. 传入的是本地临时绝对路径
-    if (fileInfo.file && fs.existsSync(fileInfo.file)) {
-      fs.copyFileSync(fileInfo.file, destPath);
-      return destPath;
+    // 3. 调用 OneBot API 获取 (get_file / get_private_file_url / get_group_file_url)
+    const fileTarget = fileInfo.file_id || fileInfo.file || fileInfo.id;
+    if (fileTarget) {
+      console.log(`[QQBot] 正在调用 OneBot API 获取文件: ${fileTarget}`);
+
+      // 3.1 尝试 get_file 接口
+      try {
+        const res = await this.callOneBotApi('get_file', {
+          file_id: fileTarget,
+          file: fileTarget
+        });
+        const d = res?.data || (res?.status === 'ok' ? res : null);
+        if (d) {
+          // A. 本地文件已在 NapCat 容器下载且被共享挂载
+          if (d.file && fs.existsSync(d.file)) {
+            console.log(`[QQBot] OneBot get_file 匹配到本地文件: ${d.file}`);
+            fs.copyFileSync(d.file, destPath);
+            return destPath;
+          }
+          // B. 返回了下载 URL
+          if (d.url) {
+            console.log(`[QQBot] OneBot get_file 返回直链，正在下载: ${d.url}`);
+            const dlRes = await fetch(d.url);
+            if (dlRes.ok) {
+              const buf = Buffer.from(await dlRes.arrayBuffer());
+              fs.writeFileSync(destPath, buf);
+              return destPath;
+            }
+          }
+          // C. 返回了 Base64
+          if (d.base64) {
+            console.log('[QQBot] OneBot get_file 返回 Base64，正在解码写入...');
+            const buf = Buffer.from(d.base64, 'base64');
+            fs.writeFileSync(destPath, buf);
+            return destPath;
+          }
+        }
+      } catch (err) {
+        console.warn(`[QQBot] 调用 get_file 异常: ${err.message}`);
+      }
+
+      // 3.2 针对私聊文件尝试 get_private_file_url
+      if (!context.isGroup) {
+        try {
+          const res = await this.callOneBotApi('get_private_file_url', { file_id: fileTarget });
+          const url = res?.data?.url || res?.data;
+          if (typeof url === 'string' && url.startsWith('http')) {
+            console.log(`[QQBot] get_private_file_url 成功获取直链，正在下载...`);
+            const dlRes = await fetch(url);
+            if (dlRes.ok) {
+              const buf = Buffer.from(await dlRes.arrayBuffer());
+              fs.writeFileSync(destPath, buf);
+              return destPath;
+            }
+          }
+        } catch (err) {
+          console.warn(`[QQBot] 调用 get_private_file_url 异常: ${err.message}`);
+        }
+      }
+
+      // 3.3 针对群文件尝试 get_group_file_url
+      if (context.isGroup && context.groupId) {
+        try {
+          const res = await this.callOneBotApi('get_group_file_url', {
+            group_id: Number(context.groupId) || context.groupId,
+            file_id: fileTarget,
+            busid: fileInfo.busid
+          });
+          const url = res?.data?.url || res?.data;
+          if (typeof url === 'string' && url.startsWith('http')) {
+            console.log(`[QQBot] get_group_file_url 成功获取直链，正在下载...`);
+            const dlRes = await fetch(url);
+            if (dlRes.ok) {
+              const buf = Buffer.from(await dlRes.arrayBuffer());
+              fs.writeFileSync(destPath, buf);
+              return destPath;
+            }
+          }
+        } catch (err) {
+          console.warn(`[QQBot] 调用 get_group_file_url 异常: ${err.message}`);
+        }
+      }
     }
 
-    throw new Error('未获取到有效的文件下载地址或本地路径');
+    throw new Error('未获取到有效的文件下载地址或本地路径 (已尝试直接读取、直链下载及 OneBot get_file 接口)');
   }
 
   /**
@@ -302,7 +423,7 @@ class QqBotAdapter {
         return { handled: true, action: 'blocked' };
       }
 
-      const fileInfo = this.extractFileInfo(event.message);
+      const fileInfo = this.extractFileInfo(event.message, event);
       if (fileInfo) {
         return this.processFileAction({
           sessionUserId: `qq_${rawUserId}`,
@@ -326,12 +447,15 @@ class QqBotAdapter {
       const rawUserId = event.user_id;
       if (!this.isUserAllowed(rawUserId)) return { handled: true, action: 'blocked' };
 
-      return this.processFileAction({
-        sessionUserId: `qq_${rawUserId}`,
-        rawUserId,
-        fileInfo: event.file,
-        isGroup: false
-      });
+      const fileInfo = this.extractFileInfo(null, event);
+      if (fileInfo) {
+        return this.processFileAction({
+          sessionUserId: `qq_${rawUserId}`,
+          rawUserId,
+          fileInfo,
+          isGroup: false
+        });
+      }
     }
 
     // C. 群聊消息
@@ -341,7 +465,7 @@ class QqBotAdapter {
       if (!this.isGroupAllowed(groupId)) return { handled: true, action: 'group_ignored' };
 
       // 检查是否包含文件
-      const fileInfo = this.extractFileInfo(event.message);
+      const fileInfo = this.extractFileInfo(event.message, event);
       if (fileInfo) {
         return this.processFileAction({
           sessionUserId: `qq_group_${groupId}_${rawUserId}`,
@@ -373,13 +497,16 @@ class QqBotAdapter {
       const rawUserId = event.user_id;
       if (!this.isGroupAllowed(groupId)) return { handled: true, action: 'group_ignored' };
 
-      return this.processFileAction({
-        sessionUserId: `qq_group_${groupId}_${rawUserId}`,
-        rawUserId,
-        groupId,
-        isGroup: true,
-        fileInfo: event.file
-      });
+      const fileInfo = this.extractFileInfo(null, event);
+      if (fileInfo) {
+        return this.processFileAction({
+          sessionUserId: `qq_group_${groupId}_${rawUserId}`,
+          rawUserId,
+          groupId,
+          isGroup: true,
+          fileInfo
+        });
+      }
     }
 
     return { handled: false, reason: 'unsupported_event' };
@@ -434,7 +561,7 @@ class QqBotAdapter {
 
     try {
       const userDir = this.sessionManager.getUserDir(sessionUserId);
-      const localFilePath = await this.downloadOrResolveFile(fileInfo, userDir);
+      const localFilePath = await this.downloadOrResolveFile(fileInfo, userDir, { isGroup, rawUserId, groupId });
 
       const result = await this.sessionManager.handleFile(sessionUserId, {
         filePath: localFilePath,

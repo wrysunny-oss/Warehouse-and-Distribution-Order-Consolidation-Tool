@@ -88,3 +88,17 @@
 [23:26:06] [QQBot] 📨 收到 OneBot Webhook POST 回调 (数据大小: 56 字节)
 [23:26:06] [BotServer] 🌐 HTTP POST /qq
 [23:26:06] [QQBot] 📨 收到 OneBot Webhook POST 回调 (数据大小: 80 字节)
+[23:57:06] [BotServer] 🌐 HTTP GET /wechat
+[23:57:06] [BotServer] 🌐 HTTP GET /wechat
+[23:57:07] [BotServer] 🌐 HTTP GET /qq
+[23:57:07] [BotServer] 🌐 HTTP POST /qq
+[23:57:07] [QQBot] 📨 收到 OneBot Webhook POST 回调 (数据大小: 56 字节)
+[23:57:07] [BotServer] 🌐 HTTP POST /qq
+[23:57:07] [QQBot] 📨 收到 OneBot Webhook POST 回调 (数据大小: 80 字节)
+[00:03:24] [BotServer] 🌐 HTTP GET /wechat
+[00:03:24] [BotServer] 🌐 HTTP GET /wechat
+[00:03:25] [BotServer] 🌐 HTTP GET /qq
+[00:03:25] [BotServer] 🌐 HTTP POST /qq
+[00:03:25] [QQBot] 📨 收到 OneBot Webhook POST 回调 (数据大小: 56 字节)
+[00:03:25] [BotServer] 🌐 HTTP POST /qq
+[00:03:25] [QQBot] 📨 收到 OneBot Webhook POST 回调 (数据大小: 80 字节)

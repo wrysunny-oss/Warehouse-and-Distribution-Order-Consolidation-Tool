@@ -12,6 +12,8 @@ services:
     volumes:
       # 挂载共享会话与文件缓存（实现生成表格零拷贝极速直传）
       - shared-sessions:/tmp/excel-bot-sessions
+      # 挂载 NapCat 容器数据（只读共享，使 excel-bot 能直接秒级读取 NapCat 接收的离线文件）
+      - ./napcat-qq-data:/root/.config/QQ:ro
       # 挂载配置文件（可在宿主机直接修改预设与参数，无需重新构建容器）
       - ./product-preset.json:/app/product-preset.json
       - ./warehouse-preset.json:/app/warehouse-preset.json

@@ -140,6 +140,80 @@ test('QQ 机器人：收到 Excel 文件自动识别并调用 upload_private_fil
   }
 });
 
+test('QQ 机器人：收到仅含 file_id/UUID 的文件消息，通过 OneBot get_file 接口拉取并自动处理', async () => {
+  const receiptPath = path.join(templatesDir, 'ReceiptNote.xlsx');
+  if (!fs.existsSync(receiptPath)) return;
+  const sampleBuf = fs.readFileSync(receiptPath);
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qq-test-getfile-'));
+  try {
+    const sm = new SessionManager({ tempDir });
+    const apiCalls = [];
+
+    const adapter = new QqBotAdapter({
+      enabled: true,
+      sessionManager: sm
+    });
+
+    adapter.callOneBotApi = async (action, params) => {
+      apiCalls.push({ action, params });
+      if (action === 'get_file') {
+        // 模拟 NapCat 返回 Base64 数据
+        return {
+          status: 'ok',
+          retcode: 0,
+          data: {
+            file_name: 'ReceiptNote.xlsx',
+            base64: sampleBuf.toString('base64')
+          }
+        };
+      }
+      return { status: 'ok' };
+    };
+
+    // 先发送 "1" 进入送货单模式
+    await adapter.handleOneBotEvent({
+      post_type: 'message',
+      message_type: 'private',
+      user_id: 99991,
+      message: '1'
+    });
+
+    // 模拟 NapCat 推送的仅有 file_id (无本地路径和直链) 的文件段
+    const eventFile = {
+      post_type: 'message',
+      message_type: 'private',
+      user_id: 99991,
+      message: [
+        {
+          type: 'file',
+          data: {
+            file_id: 'napcat-uuid-72ac4f2c18704b00ad5f24f7a64ba035',
+            file_name: 'ReceiptNote.xlsx'
+          }
+        }
+      ]
+    };
+
+    const resFile = await adapter.handleOneBotEvent(eventFile);
+    assert.equal(resFile.handled, true);
+
+    // 验证是否调用了 get_file 拉取文件
+    const getFileCall = apiCalls.find((c) => c.action === 'get_file');
+    assert.ok(getFileCall, '应该调用 get_file 拉取文件');
+    assert.equal(getFileCall.params.file_id, 'napcat-uuid-72ac4f2c18704b00ad5f24f7a64ba035');
+
+    // 验证是否成功处理并调用 upload_private_file
+    const uploadCall = apiCalls.find((c) => c.action === 'upload_private_file');
+    assert.ok(uploadCall, '获取文件后应自动计算并调用 upload_private_file 回传结果');
+    assert.equal(uploadCall.params.user_id, 99991);
+
+    adapter.destroy();
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('QQ 机器人：HTTP Webhook 端点 /qq 接收与响应', async () => {
   const botServer = new WechatBotServer({
     port: 39998,
