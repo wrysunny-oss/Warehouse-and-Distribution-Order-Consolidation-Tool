@@ -13,6 +13,8 @@ const DEFAULT_QQ_CONFIG = {
   enabled: true,
   // OneBot v11 HTTP API 基础地址（NapCat 默认监听 3001）
   onebotHttpUrl: 'http://127.0.0.1:3001',
+  // OneBot API Token 密钥（若 NapCat 配置了 Token 需填写）
+  onebotToken: '',
   // OneBot v11 正向 WebSocket 地址（可选，配置后会自动建立长连接）
   onebotWsUrl: '',
   // 接收 NapCat HTTP POST Webhook 回调的路径
