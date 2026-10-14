@@ -165,7 +165,7 @@ class WarehouseExcelPlugin(Star):
 
     async def _process_and_reply(self, event: AstrMessageEvent, user_id: str, task_type: str, files: List[Dict[str, Any]]):
         """调用业务算力 API 并将生成的结果文件回传给用户"""
-        await event.send(MessageChain().message(f"⏳ 正在智能分析并汇总表格《{files[0]['name']}》，请稍候..."))
+        yield event.plain_result(f"⏳ 正在智能分析并汇总表格《{files[0]['name']}》，请稍候...")
 
         try:
             result = await self._call_backend_api(user_id, task_type, files)
@@ -178,7 +178,7 @@ class WarehouseExcelPlugin(Star):
             output_files = result.get("files", [])
 
             if not output_files:
-                yield event.plain_result(f"✅ {text_summary}\n(未生成输出文件)")
+                yield event.plain_result(f"ℹ️ {text_summary}")
                 return
 
             # 回传文件
@@ -196,10 +196,10 @@ class WarehouseExcelPlugin(Star):
                     send_path = await self._download_result_file(download_url, file_name)
 
                 if send_path and os.path.exists(send_path):
-                    chain = MessageChain([
+                    chain = [
                         Comp.Plain(f"🎉 处理完成！\n{text_summary}\n\n正在发送结果文件："),
                         Comp.File(file=send_path, name=file_name)
-                    ])
+                    ]
                     yield event.chain_result(chain)
                 else:
                     # 备用方案：输出下载地址
@@ -254,10 +254,17 @@ class WarehouseExcelPlugin(Star):
         if hasattr(msg_obj, "message") and isinstance(msg_obj.message, list):
             for comp in msg_obj.message:
                 if isinstance(comp, Comp.File) or getattr(comp, "type", "") == "file":
-                    file_path = getattr(comp, "file", None) or getattr(comp, "path", None)
+                    file_path = None
+                    if hasattr(comp, "get_file"):
+                        try:
+                            file_path = await comp.get_file()
+                        except Exception as e:
+                            logger.warn(f"[WarehouseExcelPlugin] comp.get_file() 异步下载异常: {e}")
+                    if not file_path:
+                        file_path = getattr(comp, "path", None)
                     file_url = getattr(comp, "url", None)
-                    file_name = getattr(comp, "name", None) or "table.xlsx"
-                    if self._is_excel_or_csv(file_name):
+                    file_name = getattr(comp, "name", None) or (os.path.basename(file_path) if file_path else "table.xlsx")
+                    if self._is_excel_or_csv(file_name) or (file_path and self._is_excel_or_csv(file_path)):
                         extracted.append({
                             "name": file_name,
                             "path": file_path,

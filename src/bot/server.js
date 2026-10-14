@@ -450,17 +450,18 @@ class WechatBotServer {
       if (!taskType || taskType === 'auto') {
         if (path1 && fs.existsSync(path1)) {
           const sniff = await sniffExcelFile(path1);
-          if (sniff.type === 'receipt-note') {
+          if (sniff.type === 'receipt-note' || sniff.type === 'delivery-note') {
             taskType = 'delivery';
           } else if (sniff.type === 'reconciliation') {
             taskType = 'invoice';
           } else if (sniff.type === 'platform-fee') {
             taskType = 'platform-fee';
-          } else if (sniff.type === 'inventory' || sniff.type === 'table3') {
+          } else if (sniff.type === 'realtime-inventory' || sniff.type === 'inventory' || sniff.type === 'table3' || sniff.type === 'in-transit') {
             taskType = 'inventory';
           } else {
             taskType = 'delivery';
           }
+          console.log(`[BotServer] 🔍 智能嗅探: 文件=[${path.basename(path1)}], 识别类型=[${sniff.type}] -> 设定任务=[${taskType}]`);
         } else {
           taskType = 'delivery';
         }
