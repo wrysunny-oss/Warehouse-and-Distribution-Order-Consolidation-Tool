@@ -53,29 +53,32 @@ function classifyHeaders(headers) {
   const has = (keyword) => headers.some((h) => h.includes(keyword));
   const hasExact = (name) => headerSet.has(name);
 
-  // 1. 平台费用核销（具有待开票流水主单号、费用项名称/编码、费用明细、核销流水等特征）
+  // 1. 开票通知单 / 对账单（必须包含发票方向或包含对账单/费用类型/开票流水）
+  if (has('发票方向') || (has('对账单') && has('费用类型')) || (has('费用类型') && has('开票流水'))) {
+    return {
+      type: 'reconciliation',
+      name: '天猫超市对账单',
+      description: '包含费用类型、发票方向等字段，用于开票通知单汇总',
+      confidence: 0.95
+    };
+  }
+
+  // 2. 平台费用核销（具有待开票流水主单号、费用项名称/编码、费用明细、核销流水等特征）
   if (
     has('待开票流水') ||
     has('核销流水') ||
-    has('费用项名称') ||
-    has('费用项编码') ||
+    has('费用项') ||
     has('费用明细') ||
+    has('扣款明细') ||
+    has('扣款流水') ||
+    (has('核销') && (has('金额') || has('流水') || has('单号') || has('账单'))) ||
+    (has('费用') && (has('流水') || has('账单') || has('结算') || has('扣款') || has('金额') || has('科目'))) ||
     (has('结算金额') && has('账单编号'))
   ) {
     return {
       type: 'platform-fee',
       name: '平台费用流水表',
       description: '包含平台费用流水账单，用于费用核销汇总计算',
-      confidence: 0.95
-    };
-  }
-
-  // 2. 开票通知单 / 对账单（必须包含发票方向或包含对账单/费用类型/开票流水）
-  if (has('发票方向') || (has('对账单') && has('费用类型')) || (has('费用类型') && has('开票流水'))) {
-    return {
-      type: 'reconciliation',
-      name: '天猫超市对账单',
-      description: '包含费用类型、发票方向等字段，用于开票通知单汇总',
       confidence: 0.95
     };
   }
