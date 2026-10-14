@@ -4,3 +4,7 @@ node_modules/*
 output/*
 smoke-*.png
 ~$*
+*.log
+napcat-data/
+napcat-qq-data/
+astrbot-data/

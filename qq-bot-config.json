@@ -1,6 +1,6 @@
 {
-  "enabled": true,
-  "onebotHttpUrl": "http://napcat:3001",
+  "enabled": false,
+  "onebotHttpUrl": "http://127.0.0.1:3001",
   "onebotToken": "",
   "onebotWsUrl": "",
   "webhookPath": "/qq",

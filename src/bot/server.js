@@ -11,6 +11,7 @@ const { verifySignature, decryptMessage, parseXmlTags } = require('./crypto');
 const { WechatApiClient } = require('./wechat-api');
 const { SessionManager } = require('./session-manager');
 const { QqBotAdapter } = require('./qq-adapter');
+const { sniffExcelFile } = require('../services/sniffer-service');
 
 const LOG_FILE = path.join(__dirname, '../../bot.log');
 function botLog(...args) {
@@ -84,6 +85,7 @@ class WechatBotServer {
         status: 'ok',
         wechatConfigured: isConfigured(this.config),
         qqEnabled: Boolean(this.qqConfig.enabled),
+        astrbotReady: true,
         uptime: process.uptime()
       }));
       return;
@@ -108,6 +110,7 @@ class WechatBotServer {
             .badge-green { background: #dcfce7; color: #15803d; }
             .badge-amber { background: #fef3c7; color: #b45309; }
             .badge-blue { background: #dbeafe; color: #1d4ed8; }
+            .badge-purple { background: #f3e8ff; color: #7e22ce; }
             .btn { display: inline-block; background: #166534; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 10px; }
             .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
             @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
@@ -118,22 +121,25 @@ class WechatBotServer {
         <body>
           <div class="card">
             <h2>🤖 仓配订单汇总小助手 · 多平台服务控制台</h2>
-            <p>已就绪！团队成员可通过 <strong>QQ 机器人聊天</strong>、<strong>网页直传</strong>、或 <strong>微信</strong> 快速处理 Excel 单据。</p>
+            <p>已就绪！团队成员可通过 <strong>AstrBot 智能机器人 (QQ/微信/企微)</strong>、<strong>网页直传</strong> 快速处理 Excel 单据。</p>
             
             <div class="grid">
               <div class="subcard">
-                <h3>🐧 QQ 机器人 (OneBot v11)</h3>
-                <p>状态：<span class="badge ${qqEnabled ? 'badge-blue' : 'badge-amber'}">${qqEnabled ? '已启用 (支持好友/群聊甩文件)' : '未启用'}</span></p>
-                <p>回调路径：<code>${this.qqConfig.webhookPath || '/qq'}</code></p>
-                <p>NapCat 接口：<code>${this.qqConfig.onebotHttpUrl || 'http://127.0.0.1:3001'}</code></p>
-                <p style="font-size:12px;color:#64748b;">支持手机/电脑 QQ 直接将 Excel 发送给机器人，自动识别并回传结果。</p>
+                <h3>🚀 AstrBot 智能网关 (统一接管 QQ / 微信)</h3>
+                <p>状态：<span class="badge badge-purple">已就绪 (端口 6185)</span></p>
+                <p>控制台入口：<a href="http://localhost:6185" target="_blank" style="color:#7e22ce;font-weight:600;">http://&lt;服务器IP&gt;:6185</a></p>
+                <p>大模型：<code>智谱 AI GLM-4-Flash (免费免翻墙)</code></p>
+                <p>通讯平台：<code>QQ (官方/NapCat) + 微信 (个人号/企微)</code></p>
+                <p style="font-size:12px;color:#64748b;">所有聊天消息、Excel 表格收发与智能问答统一由 AstrBot 接管，支持自然语言与文件回传。</p>
               </div>
 
               <div class="subcard">
-                <h3>💬 微信 / 企业微信自建应用</h3>
-                <p>状态：<span class="badge ${wechatConfigured ? 'badge-green' : 'badge-amber'}">${wechatConfigured ? '已配置' : '等待填写'}</span></p>
-                <p>回调路径：<code>${this.config.webhookPath || '/wechat'}</code></p>
-                <p style="font-size:12px;color:#64748b;">支持企业微信文字交互与网页端互联推送。</p>
+                <h3>🌐 网页直传服务</h3>
+                <p>状态：<span class="badge badge-green">运行中 (端口 3000)</span></p>
+                <p>直传地址：<a href="/upload" style="color:#15803d;font-weight:600;">/upload</a></p>
+                <p>算力引擎：<code>5大业务纯函数算法 (Node.js 22)</code></p>
+                <p>适用场景：<code>临时人员 / 电脑浏览器快速下载</code></p>
+                <p style="font-size:12px;color:#64748b;">无需加好友，手机或电脑浏览器直接选择表格生成并一键下载。</p>
               </div>
             </div>
 
@@ -396,30 +402,68 @@ class WechatBotServer {
   }
 
   /**
-   * 处理网页端上传并触发业务生成
+   * 处理文件上传与业务生成 (支持 Multipart 表单直传 与 JSON 文件路径直传)
    */
   async handleWebUpload(req, res) {
     try {
-      const responseObj = new Response(req, { headers: req.headers });
-      const formData = await responseObj.formData();
-
-      const userId = formData.get('userId') || 'LiShiDi';
-      const taskType = formData.get('taskType') || 'delivery';
-      const file1 = formData.get('file1');
-      const file2 = formData.get('file2');
-
-      const userDir = this.sessionManager.getUserDir(userId);
-
+      let userId = 'LiShiDi';
+      let taskType = 'delivery';
       let path1 = '';
       let path2 = '';
+      const contentType = req.headers['content-type'] || '';
+      const isJson = contentType.includes('application/json');
 
-      if (file1 && typeof file1 === 'object' && file1.name) {
-        path1 = path.join(userDir, file1.name);
-        fs.writeFileSync(path1, Buffer.from(await file1.arrayBuffer()));
+      if (isJson) {
+        const bodyStr = await new Promise((resolve, reject) => {
+          const chunks = [];
+          req.on('data', (c) => chunks.push(c));
+          req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+          req.on('error', reject);
+        });
+        const body = JSON.parse(bodyStr || '{}');
+        userId = body.userId || 'LiShiDi';
+        taskType = body.taskType || 'auto';
+        path1 = body.filePath1 || body.path1 || '';
+        path2 = body.filePath2 || body.path2 || '';
+      } else {
+        const responseObj = new Response(req, { headers: req.headers });
+        const formData = await responseObj.formData();
+
+        userId = formData.get('userId') || 'LiShiDi';
+        taskType = formData.get('taskType') || 'auto';
+        const file1 = formData.get('file1');
+        const file2 = formData.get('file2');
+
+        const userDir = this.sessionManager.getUserDir(userId);
+
+        if (file1 && typeof file1 === 'object' && file1.name) {
+          path1 = path.join(userDir, file1.name);
+          fs.writeFileSync(path1, Buffer.from(await file1.arrayBuffer()));
+        }
+        if (file2 && typeof file2 === 'object' && file2.name) {
+          path2 = path.join(userDir, file2.name);
+          fs.writeFileSync(path2, Buffer.from(await file2.arrayBuffer()));
+        }
       }
-      if (file2 && typeof file2 === 'object' && file2.name) {
-        path2 = path.join(userDir, file2.name);
-        fs.writeFileSync(path2, Buffer.from(await file2.arrayBuffer()));
+
+      // 若任务类型未指定或为 auto，根据主文件表头进行智能嗅探
+      if (!taskType || taskType === 'auto') {
+        if (path1 && fs.existsSync(path1)) {
+          const sniff = await sniffExcelFile(path1);
+          if (sniff.type === 'receipt-note') {
+            taskType = 'delivery';
+          } else if (sniff.type === 'reconciliation') {
+            taskType = 'invoice';
+          } else if (sniff.type === 'platform-fee') {
+            taskType = 'platform-fee';
+          } else if (sniff.type === 'inventory' || sniff.type === 'table3') {
+            taskType = 'inventory';
+          } else {
+            taskType = 'delivery';
+          }
+        } else {
+          taskType = 'delivery';
+        }
       }
 
       const session = this.sessionManager.getSession(userId);
@@ -439,16 +483,17 @@ class WechatBotServer {
         session.files.feeFilePath = path1;
       }
 
-      console.log(`[WechatBot] 📱 网页端触发任务: [${taskType}], 用户: [${userId}]`);
+      console.log(`[BotServer] 🚀 触发业务任务: [${taskType}], 用户: [${userId}], 文件: [${path.basename(path1 || '')}]`);
       const result = await this.sessionManager.tryExecuteTask(session);
 
       const filesWithDownload = (result.files || []).map((f) => ({
         fileName: f.fileName,
+        filePath: f.filePath,
         downloadUrl: `/api/download?file=${encodeURIComponent(f.filePath)}&name=${encodeURIComponent(f.fileName)}`
       }));
 
-      // 异步通过微信推送到用户手机对话中
-      if (result.files && result.files.length) {
+      // 异步通过微信推送到用户手机对话中 (若旧版企微显式启用且已配置)
+      if (this.config.enabled && isConfigured(this.config) && result.files && result.files.length) {
         (async () => {
           try {
             await this.apiClient.sendTextMessage(userId, `🎉 ${result.text}`);
@@ -465,11 +510,12 @@ class WechatBotServer {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({
         success: true,
+        taskType,
         text: result.text,
         files: filesWithDownload
       }));
     } catch (err) {
-      console.error('[WechatBot] 网页上传处理失败:', err);
+      console.error('[BotServer] 上传处理失败:', err);
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ success: false, error: err.message }));
     }
