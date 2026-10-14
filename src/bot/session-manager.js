@@ -178,9 +178,19 @@ class SessionManager {
   }
 
   /**
-   * 处理用户发送的文件
+   * 处理用户发送的文件（兼容对象传参及多参数传参）
    */
-  async handleFile(userId, { filePath, fileName }) {
+  async handleFile(userId, filePathOrObj, maybeFileName) {
+    let filePath;
+    let fileName;
+    if (typeof filePathOrObj === 'object' && filePathOrObj !== null) {
+      filePath = filePathOrObj.filePath;
+      fileName = filePathOrObj.fileName || path.basename(filePath || 'table.xlsx');
+    } else {
+      filePath = filePathOrObj;
+      fileName = maybeFileName || path.basename(filePath || 'table.xlsx');
+    }
+
     const session = this.getSession(userId);
     let sniff;
     try {
@@ -243,6 +253,12 @@ class SessionManager {
           text: `✅ 识别到【入库单明细 ReceiptNote】《${fileName}》！\n请回复数字选择处理方式：\n【1】生成各仓送货单\n【3】推导大区采购需求表`
         };
 
+      case 'procurement':
+        session.taskType = 'procurement';
+        session.state = 'AWAITING_FILES';
+        session.files = { inputFilePath: filePath };
+        return this.tryExecuteTask(session);
+
       case 'reconciliation':
         session.taskType = 'invoice';
         session.state = 'AWAITING_FILES';
@@ -257,7 +273,7 @@ class SessionManager {
 
       default:
         return {
-          text: `收到表格《${fileName}》，但未能匹配到典型业务表头。\n识别字段：${sniff.headers.slice(0, 5).join('、')}。\n您可以回复【1~5】手动指定希望执行的任务类型。`
+          text: `收到表格《${fileName}》，但未能匹配到典型业务表头。\n识别字段：${(sniff.headers || []).slice(0, 5).join('、')}。\n您可以回复【1~5】手动指定希望执行的任务类型。`
         };
     }
   }

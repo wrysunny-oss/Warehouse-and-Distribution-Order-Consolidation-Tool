@@ -447,24 +447,43 @@ class WechatBotServer {
       }
 
       // 若任务类型未指定或为 auto，根据主文件表头进行智能嗅探
+      let sniff = null;
       if (!taskType || taskType === 'auto') {
         if (path1 && fs.existsSync(path1)) {
-          const sniff = await sniffExcelFile(path1);
+          sniff = await sniffExcelFile(path1);
           if (sniff.type === 'receipt-note' || sniff.type === 'delivery-note') {
             taskType = 'delivery';
           } else if (sniff.type === 'reconciliation') {
             taskType = 'invoice';
           } else if (sniff.type === 'platform-fee') {
             taskType = 'platform-fee';
+          } else if (sniff.type === 'procurement') {
+            taskType = 'procurement';
           } else if (sniff.type === 'realtime-inventory' || sniff.type === 'inventory' || sniff.type === 'table3' || sniff.type === 'in-transit') {
             taskType = 'inventory';
+          } else if (sniff.type === 'product-catalog') {
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              success: false,
+              error: `已收到商品基础信息表《${path.basename(path1)}》。请继续发送【送货单】或【入库明细】以进行分仓汇总。`
+            }));
+            return;
           } else {
-            taskType = 'delivery';
+            res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({
+              success: false,
+              error: `未能自动识别表格《${path.basename(path1)}》的业务意图。\n识别到的表头字段：${(sniff.headers || []).slice(0, 5).join('、')}。\n您可以直接在对话中回复：\n• 【1】送货单汇总\n• 【2】库存更新\n• 【3】采购需求表\n• 【4】开票通知单\n• 【5】平台费用核销\n指定任务后再发送此文件。`
+            }));
+            return;
           }
           console.log(`[BotServer] 🔍 智能嗅探: 文件=[${path.basename(path1)}], 识别类型=[${sniff.type}] -> 设定任务=[${taskType}]`);
         } else {
           taskType = 'delivery';
         }
+      } else if (path1 && fs.existsSync(path1)) {
+        try {
+          sniff = await sniffExcelFile(path1);
+        } catch {}
       }
 
       const session = this.sessionManager.getSession(userId);
@@ -474,8 +493,16 @@ class WechatBotServer {
         session.files.receiptFilePath = path1;
         if (path2) session.files.productFilePath = path2;
       } else if (taskType === 'inventory') {
-        session.files.inventoryFilePaths = [path1].filter(Boolean);
-        session.files.table3FilePath = path2;
+        if (sniff && sniff.type === 'table3') {
+          session.files.table3FilePath = path1;
+          if (path2) session.files.inventoryFilePaths = [path2];
+        } else if (sniff && sniff.type === 'in-transit') {
+          session.files.transitFilePath = path1;
+          if (path2) session.files.table3FilePath = path2;
+        } else {
+          session.files.inventoryFilePaths = [path1].filter(Boolean);
+          if (path2) session.files.table3FilePath = path2;
+        }
       } else if (taskType === 'procurement') {
         session.files.inputFilePath = path1;
       } else if (taskType === 'invoice') {

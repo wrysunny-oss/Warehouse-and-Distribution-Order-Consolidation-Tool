@@ -96,6 +96,33 @@ test('AstrBot 算力接口测试：健康探活、JSON 直传与自动嗅探', a
       assert.ok(json.files.length > 0);
     });
 
+    // 5. 测试 /api/upload taskType 为 auto 时直接发送开票流水单据列表自动识别并处理
+    await t.test('/api/upload taskType 为 auto 时智能识别开票流水单据列表为 platform-fee', async () => {
+      const realFeePath = path.join(templatesDir, '开票流水单据列表-72ac4f2c18704b00ad5f24f7a64ba035.xlsx');
+      const testFeePath = path.join(tempDir, '开票流水单据列表.xlsx');
+      fs.copyFileSync(realFeePath, testFeePath);
+
+      const payload = {
+        userId: 'test_astrbot_fee_auto',
+        taskType: 'auto',
+        filePath1: testFeePath
+      };
+
+      const res = await fetch(`http://localhost:${TEST_PORT}/api/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.equal(json.success, true);
+      assert.equal(json.taskType, 'platform-fee');
+      assert.ok(json.files.length > 0);
+      assert.ok(json.files[0].fileName.includes('费用核销汇总'));
+      assert.ok(fs.existsSync(json.files[0].filePath));
+    });
+
   } finally {
     await server.stop();
     fs.rmSync(tempDir, { recursive: true, force: true });
