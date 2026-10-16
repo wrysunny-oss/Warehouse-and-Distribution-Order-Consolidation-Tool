@@ -48,7 +48,11 @@ function getWarehousePresetFilePath(customDir) {
       return path.join(app.getPath('userData'), 'warehouse-preset.json');
     }
   } catch {
-    // Fallback in tests
+    // Fallback in tests or standalone bot
+  }
+  if (process.env.APPDATA) {
+    const candidate = path.join(process.env.APPDATA, 'excel-warehouse-summary', 'warehouse-preset.json');
+    if (fs.existsSync(candidate)) return candidate;
   }
   return path.join(__dirname, '..', 'warehouse-preset.json');
 }

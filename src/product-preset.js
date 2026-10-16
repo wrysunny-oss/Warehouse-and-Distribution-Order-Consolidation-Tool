@@ -26,7 +26,11 @@ function getPresetFilePath(customDir) {
       return path.join(app.getPath('userData'), 'product-preset.json');
     }
   } catch {
-    // Fallback if electron not available (e.g. unit tests)
+    // Fallback if electron not available (e.g. unit tests or standalone bot)
+  }
+  if (process.env.APPDATA) {
+    const candidate = path.join(process.env.APPDATA, 'excel-warehouse-summary', 'product-preset.json');
+    if (fs.existsSync(candidate)) return candidate;
   }
   return path.join(__dirname, '..', 'product-preset.json');
 }

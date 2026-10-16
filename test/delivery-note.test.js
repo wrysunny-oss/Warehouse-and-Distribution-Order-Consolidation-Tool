@@ -169,3 +169,21 @@ test('生产日期为空时仍可生成', async () => {
   });
   assert.equal(builds[0].workbook.getWorksheet('测试仓').getCell('H4').value, '');
 });
+
+test('生产日期支持条码或productKey匹配写入', async () => {
+  const productRows = [{ '货品名称（带空格）': '测试商品', '条码': '6001', '品牌名称': '测试品牌', '订单简称': '测试商品' }];
+  const receiptRows = [{
+    'LBX号': 'LBX', '供应商编码': 'SUP', '仓库名称': '测试仓', '预约入库时间': '2026-10-01',
+    '货品名称': '测试商品', '条形码': '6001', '品牌名称': '测试品牌', '商品实际发货数量': 2, '采购规格(箱规数)': 1
+  }];
+  const builds = await buildDeliveryWorkbooks({
+    templatePath: path.join(__dirname, '..', 'src', 'templates', 'DeliveryNote.xlsx'),
+    productRows, receiptRows, brands: ['测试品牌'], productionDates: { '6001': '2026-10-16' },
+    shelfLife: '360', contact: '17771571056', supplierName: '测试供应商'
+  });
+  const cellVal = builds[0].workbook.getWorksheet('测试仓').getCell('H4').value;
+  assert.ok(cellVal instanceof Date);
+  assert.equal(cellVal.getFullYear(), 2026);
+  assert.equal(cellVal.getMonth() + 1, 10);
+  assert.equal(cellVal.getDate(), 16);
+});

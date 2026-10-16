@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const fs = require('node:fs');
 const ExcelJS = require('exceljs');
 const { cleanText, numberValue } = require('./core');
 const { loadProductPreset } = require('./product-preset');
@@ -19,6 +20,43 @@ const DEFAULT_INVOICE_CONFIG = {
   account: '571913080610506',
   mailRecipient: '武汉营销中心1293737582@qq.com'
 };
+
+function getInvoiceConfigPath(customDir) {
+  if (customDir) return path.join(customDir, 'invoice-config.json');
+  try {
+    const { app } = require('electron');
+    if (app && typeof app.getPath === 'function') {
+      return path.join(app.getPath('userData'), 'invoice-config.json');
+    }
+  } catch {}
+  if (process.env.APPDATA) {
+    const candidate = path.join(process.env.APPDATA, 'excel-warehouse-summary', 'invoice-config.json');
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return path.join(__dirname, '..', 'invoice-config.json');
+}
+
+function readStoredInvoiceConfig(customDir) {
+  const cfgPath = getInvoiceConfigPath(customDir);
+  if (fs.existsSync(cfgPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return { ...DEFAULT_INVOICE_CONFIG, ...data };
+    } catch {}
+  }
+  return { ...DEFAULT_INVOICE_CONFIG };
+}
+
+function writeStoredInvoiceConfig(config, customDir) {
+  const cfgPath = getInvoiceConfigPath(customDir);
+  try {
+    fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+    fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
 
 function formatTodayDate() {
   const now = new Date();
@@ -645,6 +683,9 @@ async function exportInvoiceNotificationWorkbook({ items = [], config = {}, outp
 
 module.exports = {
   DEFAULT_INVOICE_CONFIG,
+  getInvoiceConfigPath,
+  readStoredInvoiceConfig,
+  writeStoredInvoiceConfig,
   formatTodayDate,
   readReconciliationWorkbook,
   parseReconciliationFiles,

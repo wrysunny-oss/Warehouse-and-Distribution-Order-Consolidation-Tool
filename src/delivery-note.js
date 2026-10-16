@@ -282,7 +282,12 @@ async function buildDeliveryWorkbooks({
         const boxes = packages / boxSpec;
         const isFractional = Math.abs(boxes - Math.round(boxes)) > 1e-9;
         const deliveryDate = parseDate(source['预约入库时间']) || parseDate(source['期望到货时间']);
-        const productionDate = parseDate(productionDates[line.product.key]);
+        const productionDate = parseDate(
+          productionDates[line.product.key] ||
+          productionDates[line.product.barcode] ||
+          productionDates[cleanCode(source['条形码'])] ||
+          productionDates[line.product.name]
+        );
         const lbx = clean(source['LBX号']);
         const barcode = cleanCode(source['条形码']);
         row.values = [deliveryDate || '', lbx, barcode, line.product.name, boxSpec, packages, boxes, productionDate || '', normalizeShelfLife(shelfLife), clean(contact)];

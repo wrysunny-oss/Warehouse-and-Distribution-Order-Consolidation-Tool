@@ -623,14 +623,20 @@ export function App() {
       });
       return { ...prev, productionDates: dates };
     });
-    toast.success(`已为 ${keys.length} 个商品应用生产日期`);
+    if (dateVal) {
+      toast.success(`已为 ${keys.length} 个商品设置生产日期`);
+    } else {
+      toast.success(`已清除 ${keys.length} 个商品的生产日期`);
+    }
   };
 
   const handleExportDelivery = async () => {
     try {
       const res = await window.excelTool.exportDelivery({
         product: productPresets,
+        productRows: productPresets,
         receipt: deliveryState.receipt,
+        receiptRows: deliveryState.receipt?.rows,
         selectedBrands: Array.from(deliveryState.selectedBrands),
         selectedWarehouses: Array.from(deliveryState.selectedWarehouses),
         productionDates: deliveryState.productionDates,
@@ -1033,7 +1039,7 @@ export function App() {
       />
 
       {/* 2. Main Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50">
+      <div className="flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden bg-slate-50">
         <Header
           workflow={workflow}
           // Replenish
@@ -1059,7 +1065,7 @@ export function App() {
         />
 
         {/* View Areas */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden">
           {workflow === 'replenish' && (
             <ReplenishHubView
               // Step 1 props
@@ -1110,6 +1116,7 @@ export function App() {
           {workflow === 'delivery' && (
             <DeliveryView
               deliveryState={deliveryState}
+              productPresets={productPresets}
               productPresetCount={productPresets.length}
               warehousePresetCount={warehousePresets.length}
               onOpenProductPreset={() => {

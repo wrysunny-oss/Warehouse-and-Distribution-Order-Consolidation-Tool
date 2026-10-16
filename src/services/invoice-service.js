@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   DEFAULT_INVOICE_CONFIG,
+  readStoredInvoiceConfig,
   parseReconciliationFiles,
   calculateInvoiceSummary,
   exportInvoiceNotificationWorkbook,
@@ -61,8 +62,10 @@ async function processInvoiceTask({
     throw new Error('筛选计算后没有可开票的商品项目');
   }
 
+  const storedConfig = readStoredInvoiceConfig();
   const finalConfig = {
     ...DEFAULT_INVOICE_CONFIG,
+    ...storedConfig,
     ...config,
     date: config.date || formatTodayDate()
   };
@@ -76,14 +79,15 @@ async function processInvoiceTask({
     outputPath: targetOutputPath
   });
 
-  const summaryText = `开票通知单生成成功！共计 ${summary.items.length} 种商品，开票总金额为 ¥${summary.totalInvoiceAmount.toFixed(2)}。`;
+  const totalAmount = typeof summary.totalAmount === 'number' ? summary.totalAmount : 0;
+  const summaryText = `开票通知单生成成功！共计 ${summary.items.length} 种商品，开票总金额为 ¥${totalAmount.toFixed(2)}。`;
 
   return {
     success: true,
     filePath: targetOutputPath,
     fileName: path.basename(targetOutputPath),
     itemCount: summary.items.length,
-    totalAmount: summary.totalInvoiceAmount,
+    totalAmount,
     summaryText
   };
 }

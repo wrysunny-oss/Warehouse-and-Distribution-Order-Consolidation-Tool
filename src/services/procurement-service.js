@@ -78,10 +78,14 @@ async function processProcurementTask({
     if (!wh || warehouseConfigs[wh]) continue;
 
     const matchedFactory = matchWarehouseFactory(wh, warehousePreset.rows, brand);
+    const rowInboundDate = cleanText(r.inboundDate || r['预约入库时间'] || '');
+    const inboundDate = rowInboundDate || defaultInbound;
+    const pickupDate = rowInboundDate ? addDays(rowInboundDate, -1) : defaultPickup;
+
     warehouseConfigs[wh] = {
       factory: matchedFactory,
-      pickupDate: defaultPickup,
-      inboundDate: defaultInbound
+      pickupDate,
+      inboundDate
     };
   }
 

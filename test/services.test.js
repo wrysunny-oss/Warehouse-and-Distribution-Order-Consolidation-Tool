@@ -11,6 +11,7 @@ const { sniffExcelFile, classifyHeaders } = require('../src/services/sniffer-ser
 const { processDeliveryTask } = require('../src/services/delivery-service');
 const { processInventoryTask } = require('../src/services/inventory-service');
 const { processProcurementTask } = require('../src/services/procurement-service');
+const { processInvoiceTask } = require('../src/services/invoice-service');
 const { processPlatformFeeTask } = require('../src/services/platform-fee-service');
 
 const templatesDir = path.join(__dirname, '..', 'src', 'templates');
@@ -53,6 +54,11 @@ test('送货单服务：从真实 ReceiptNote 生成送货单', async () => {
     assert.equal(result.success, true);
     assert.ok(result.files.length > 0);
     assert.ok(fs.existsSync(result.files[0].filePath));
+
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(result.files[0].filePath);
+    const sheet = wb.worksheets[0];
+    assert.equal(sheet.getCell('J4').value, '17771571056');
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
@@ -123,6 +129,24 @@ test('平台费用服务：计算并导出费用核销表', async () => {
     assert.equal(result.success, true);
     assert.ok(fs.existsSync(result.filePath));
     assert.ok(result.recordCount > 0);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('开票通知单服务：从对账单生成开票通知单 Excel', async () => {
+  const reconPath = path.join(templatesDir, '2026.8.1-2026.8.10--HDB202608012026081035131200823-280102(1).xlsx');
+  if (!fs.existsSync(reconPath)) return;
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'invoice-service-test-'));
+  try {
+    const result = await processInvoiceTask({
+      reconciliationFilePaths: [reconPath],
+      outputDir: tempDir
+    });
+    assert.equal(result.success, true);
+    assert.ok(fs.existsSync(result.filePath));
+    assert.ok(result.itemCount > 0);
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }

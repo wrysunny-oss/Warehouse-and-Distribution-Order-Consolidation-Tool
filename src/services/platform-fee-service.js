@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   DEFAULT_FEE_CATEGORY_REMARKS,
+  readStoredPlatformFeeConfig,
   parsePlatformFeeFile,
   calculatePlatformFeeSummary,
   exportPlatformFeeExcel
@@ -26,7 +27,7 @@ function availableFilePath(directory, fileName) {
  */
 async function processPlatformFeeTask({
   feeFilePath,
-  categoryRemarks = DEFAULT_FEE_CATEGORY_REMARKS,
+  categoryRemarks,
   buyerShortName,
   sellerName,
   periodText,
@@ -46,11 +47,14 @@ async function processPlatformFeeTask({
     throw new Error('未在账单文件中提取到有效的流水明细记录');
   }
 
+  const storedConfig = readStoredPlatformFeeConfig();
+  const activeCategoryRemarks = categoryRemarks || storedConfig?.categoryRemarks || DEFAULT_FEE_CATEGORY_REMARKS;
+
   const summaryResult = calculatePlatformFeeSummary(parsed.rows, {
     buyerShortName: buyerShortName || parsed.defaultBuyerShort || '国宝',
     sellerName: sellerName || parsed.defaultSeller || '浙江天猫供应链管理有限公司',
     periodText: periodText || parsed.defaultPeriodText || '',
-    categoryRemarks
+    categoryRemarks: activeCategoryRemarks
   });
 
   const ext = path.extname(feeFilePath) || '.xlsx';

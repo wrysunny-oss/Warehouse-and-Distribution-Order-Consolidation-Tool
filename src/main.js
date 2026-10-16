@@ -38,6 +38,8 @@ const {
 } = require('./warehouse-preset');
 const {
   DEFAULT_INVOICE_CONFIG,
+  readStoredInvoiceConfig,
+  writeStoredInvoiceConfig,
   parseReconciliationFiles,
   calculateInvoiceSummary,
   exportInvoiceNotificationWorkbook,
@@ -45,6 +47,8 @@ const {
 } = require('./invoice-summary');
 const {
   DEFAULT_FEE_CATEGORY_REMARKS,
+  readStoredPlatformFeeConfig,
+  writeStoredPlatformFeeConfig,
   parsePlatformFeeFile,
   calculatePlatformFeeSummary,
   exportPlatformFeeExcel
@@ -259,7 +263,7 @@ ipcMain.handle('delivery:export', async (_event, payload) => {
   if (selectedConflicts.length) throw new Error(`选中品牌中有 ${selectedConflicts.length} 个条码对应多个商品，请先修复。`);
   const unmatched = analysis.unmatched.filter((item) => selectedBrands.includes(item.brand));
   if (unmatched.length) throw new Error(`选中品牌中有 ${unmatched.length} 条商品无法匹配 product 表，请先补充商品主数据。`);
-  const deliveryProductIndex = buildProductIndex(payload.productRows || []).byBarcode;
+  const deliveryProductIndex = buildProductIndex(productRows).byBarcode;
   const invalidBoxRows = selectedReceiptRows.filter((row) => {
     const product = deliveryProductIndex.get(cleanCode(row['条形码']));
     const raw = cleanText(row['采购规格(箱规数)']);
@@ -284,7 +288,7 @@ ipcMain.handle('delivery:export', async (_event, payload) => {
   const receiptRows = selectedReceiptRows;
   const buildOptions = {
     templatePath: path.join(__dirname, 'templates', 'DeliveryNote.xlsx'),
-    productRows: payload.productRows || [],
+    productRows,
     productionDates: payload.productionDates || {},
     shelfLife: payload.shelfLife,
     contact: payload.contact,
@@ -644,36 +648,6 @@ ipcMain.handle('warehouse:import-preset', async () => {
   return importWarehousePresetFromFile(result.filePaths[0]);
 });
 
-function getInvoiceConfigPath() {
-  try {
-    return path.join(app.getPath('userData'), 'invoice-config.json');
-  } catch {
-    return path.join(__dirname, '..', 'invoice-config.json');
-  }
-}
-
-function readStoredInvoiceConfig() {
-  const cfgPath = getInvoiceConfigPath();
-  if (fs.existsSync(cfgPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-      return { ...DEFAULT_INVOICE_CONFIG, ...data };
-    } catch {}
-  }
-  return { ...DEFAULT_INVOICE_CONFIG };
-}
-
-function writeStoredInvoiceConfig(config) {
-  const cfgPath = getInvoiceConfigPath();
-  try {
-    fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
-    fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf8');
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
-}
-
 ipcMain.handle('invoice:open-files', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: '选择天猫超市对账单文件（支持多选）',
@@ -730,36 +704,6 @@ ipcMain.handle('invoice:get-config', async () => {
 ipcMain.handle('invoice:save-config', async (_event, config) => {
   return writeStoredInvoiceConfig(config);
 });
-
-function getPlatformFeeConfigPath() {
-  try {
-    return path.join(app.getPath('userData'), 'platform-fee-config.json');
-  } catch {
-    return path.join(__dirname, '..', 'platform-fee-config.json');
-  }
-}
-
-function readStoredPlatformFeeConfig() {
-  const cfgPath = getPlatformFeeConfigPath();
-  if (fs.existsSync(cfgPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-      return { categoryRemarks: DEFAULT_FEE_CATEGORY_REMARKS, ...data };
-    } catch {}
-  }
-  return { categoryRemarks: DEFAULT_FEE_CATEGORY_REMARKS };
-}
-
-function writeStoredPlatformFeeConfig(config) {
-  const cfgPath = getPlatformFeeConfigPath();
-  try {
-    fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
-    fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf8');
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
-}
 
 ipcMain.handle('platform-fee:open-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {

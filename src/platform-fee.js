@@ -25,6 +25,43 @@ const DEFAULT_CATEGORY_ORDER = [
   '物流服务费'
 ];
 
+function getPlatformFeeConfigPath(customDir) {
+  if (customDir) return path.join(customDir, 'platform-fee-config.json');
+  try {
+    const { app } = require('electron');
+    if (app && typeof app.getPath === 'function') {
+      return path.join(app.getPath('userData'), 'platform-fee-config.json');
+    }
+  } catch {}
+  if (process.env.APPDATA) {
+    const candidate = path.join(process.env.APPDATA, 'excel-warehouse-summary', 'platform-fee-config.json');
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return path.join(__dirname, '..', 'platform-fee-config.json');
+}
+
+function readStoredPlatformFeeConfig(customDir) {
+  const cfgPath = getPlatformFeeConfigPath(customDir);
+  if (fs.existsSync(cfgPath)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      return { categoryRemarks: DEFAULT_FEE_CATEGORY_REMARKS, ...data };
+    } catch {}
+  }
+  return { categoryRemarks: DEFAULT_FEE_CATEGORY_REMARKS };
+}
+
+function writeStoredPlatformFeeConfig(config, customDir) {
+  const cfgPath = getPlatformFeeConfigPath(customDir);
+  try {
+    fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+    fs.writeFileSync(cfgPath, JSON.stringify(config, null, 2), 'utf8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
 function cellValue(cell) {
   if (!cell) return '';
   const value = cell.value;
@@ -723,6 +760,9 @@ async function exportPlatformFeeExcel(summaryResult, targetPath, rawRows = []) {
 module.exports = {
   DEFAULT_FEE_CATEGORY_REMARKS,
   DEFAULT_CATEGORY_ORDER,
+  getPlatformFeeConfigPath,
+  readStoredPlatformFeeConfig,
+  writeStoredPlatformFeeConfig,
   parsePlatformFeeFile,
   calculatePlatformFeeSummary,
   exportPlatformFeeExcel

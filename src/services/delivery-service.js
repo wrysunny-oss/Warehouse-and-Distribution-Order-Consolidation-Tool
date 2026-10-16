@@ -75,9 +75,10 @@ async function processDeliveryTask({
   productFilePath,
   brands,
   warehouses,
+  productionDates = {},
   supplierName = '湖北国宝桥米有限公司',
   shelfLife = 360,
-  contact = '仓储物流部',
+  contact = '17771571056',
   splitByWarehouse = false,
   outputDir
 }) {
@@ -129,6 +130,7 @@ async function processDeliveryTask({
     receiptRows: filteredReceiptRows,
     brands: targetBrands,
     warehouses: targetWarehouses,
+    productionDates,
     shelfLife,
     contact,
     supplierName,
