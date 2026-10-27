@@ -1,0 +1,228 @@
+{
+  "item": {
+    "itemId": "1084254742381",
+    "title": "【2026新米】东北大米当季10斤珍珠米家庭装软糯香甜非长粒香五常"
+  },
+  "skuBase": {
+    "components": [],
+    "skus": [
+      {
+        "propPath": "295251758:44819084370",
+        "skuId": "6303377450106"
+      },
+      {
+        "propPath": "295251758:44846328423",
+        "skuId": "6305403507233"
+      }
+    ],
+    "props": [
+      {
+        "hasGroupTags": "false",
+        "packProp": "false",
+        "shouldGroup": "false",
+        "comboProperty": "false",
+        "values": [
+          {
+            "comboPropertyValue": "false",
+            "vid": "44819084370",
+            "corner": {
+              "cornerBackgroundColor": "#ff5000",
+              "skuCornerIcon": "",
+              "cornerPVPath": "295251758:44819084370",
+              "cornerBorderColor": "#FFFFFF",
+              "cornerTextColor": "#FFFFFF",
+              "cornerText": "90%人选择"
+            },
+            "name": "东北大米 10 斤（软糯圆粒）",
+            "selected": true,
+            "empty": false
+          },
+          {
+            "comboPropertyValue": "false",
+            "vid": "44846328423",
+            "corner": {},
+            "name": "东北大米10斤（Q弹圆粒）",
+            "selected": false,
+            "empty": false
+          }
+        ],
+        "hasImage": "false",
+        "pid": "295251758",
+        "name": "规格描述",
+        "showSizeRecommend": "false",
+        "valueMap": {
+          "44819084370": {
+            "comboPropertyValue": "false",
+            "vid": "44819084370",
+            "corner": {
+              "cornerBackgroundColor": "#ff5000",
+              "skuCornerIcon": "",
+              "cornerPVPath": "295251758:44819084370",
+              "cornerBorderColor": "#FFFFFF",
+              "cornerTextColor": "#FFFFFF",
+              "cornerText": "90%人选择"
+            },
+            "name": "东北大米 10 斤（软糯圆粒）",
+            "selected": true,
+            "empty": false
+          },
+          "44846328423": {
+            "comboPropertyValue": "false",
+            "vid": "44846328423",
+            "corner": {},
+            "name": "东北大米10斤（Q弹圆粒）",
+            "selected": false,
+            "empty": false
+          }
+        }
+      }
+    ]
+  },
+  "skuCore": {
+    "sku2info": {
+      "0": {
+        "price": {
+          "priceTitle": "优惠前",
+          "priceColorNew": "#7A7A7A",
+          "priceText": "31.08",
+          "priceDesc": "起",
+          "priceMoney": "3108"
+        },
+        "subPrice": {
+          "priceColor": "#FFFFFF",
+          "priceTitle": "店铺优惠后",
+          "priceColorNew": "#FF5000",
+          "priceBgColor": "#FF5000",
+          "priceTitleColor": "#FFFFFF",
+          "priceText": "24.86起",
+          "priceMoney": "2486"
+        },
+        "logisticsTime": "预计明天发货，超48小时必赔"
+      },
+      "6303377450106": {
+        "price": {
+          "priceTitle": "优惠前",
+          "priceColorNew": "#7A7A7A",
+          "priceText": "31.08",
+          "priceMoney": "3108"
+        },
+        "subPrice": {
+          "priceColor": "#FFFFFF",
+          "priceTitle": "店铺优惠后",
+          "priceColorNew": "#FF5000",
+          "priceBgColor": "#FF5000",
+          "priceTitleColor": "#FFFFFF",
+          "priceText": "24.86",
+          "priceMoney": "2486"
+        },
+        "logisticsTime": "预计明天发货，超48小时必赔"
+      },
+      "6305403507233": {
+        "price": {
+          "priceTitle": "优惠前",
+          "priceColorNew": "#7A7A7A",
+          "priceText": "35.08",
+          "priceMoney": "3508"
+        },
+        "subPrice": {
+          "priceColor": "#FFFFFF",
+          "priceTitle": "店铺优惠后",
+          "priceColorNew": "#FF5000",
+          "priceBgColor": "#FF5000",
+          "priceTitleColor": "#FFFFFF",
+          "priceText": "28.06",
+          "priceMoney": "2806"
+        },
+        "logisticsTime": "预计明天发货，超48小时必赔"
+      }
+    }
+  },
+  "componentsVO": {
+    "deliveryVO": {
+      "freight": "快递: 免运费",
+      "agingDesc": "预计明天发货，超48小时必赔"
+    },
+    "rateVO": {
+      "group": {
+        "items": [
+          {
+            "content": "非常满意，价格实惠，包装完好。"
+          },
+          {
+            "content": "不错不错，份量足，好吃，一次能吃两碗"
+          }
+        ]
+      }
+    },
+    "extensionInfoVO": {
+      "infos": [
+        {
+          "title": "参数",
+          "type": "BASE_PROPS",
+          "items": [
+            {
+              "text": [
+                "稻米宣言"
+              ],
+              "title": "品牌"
+            },
+            {
+              "text": [
+                "大米"
+              ],
+              "title": "系列"
+            },
+            {
+              "text": [
+                "中国大陆"
+              ],
+              "title": "产地"
+            },
+            {
+              "text": [
+                "黑龙江省"
+              ],
+              "title": "省份"
+            },
+            {
+              "text": [
+                "佳木斯市"
+              ],
+              "title": "城市"
+            },
+            {
+              "text": [
+                "国产"
+              ],
+              "title": "是否进口"
+            },
+            {
+              "text": [
+                "东北大米 10 斤（软糯圆粒） 东北大米10斤（Q弹圆粒）"
+              ],
+              "title": "规格描述"
+            },
+            {
+              "text": [
+                "包装"
+              ],
+              "title": "包装方式"
+            },
+            {
+              "text": [
+                "东北大米"
+              ],
+              "title": "是否地理标志"
+            },
+            {
+              "text": [
+                "365天"
+              ],
+              "title": "保质期"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

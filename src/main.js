@@ -1,8 +1,9 @@
 'use strict';
 
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session } = require('electron');
 
 app.disableHardwareAcceleration();
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 const path = require('node:path');
 const fs = require('node:fs');
 const ExcelJS = require('exceljs');
@@ -53,8 +54,25 @@ const {
   calculatePlatformFeeSummary,
   exportPlatformFeeExcel
 } = require('./platform-fee');
+const {
+  normalizeCompetitorItems,
+  getMockTaoFactoryRiceTop20,
+  startLocalCompetitorReceiver,
+  stopLocalCompetitorReceiver
+} = require('./services/competitor-service');
+const {
+  exportCompetitorAnalysisExcel
+} = require('./services/competitor-excel-service');
+const {
+  startBrowserCrawler,
+  stopBrowserCrawler,
+  continueBrowserCrawler
+} = require('./services/competitor-crawler-service');
+
 
 let mainWindow;
+require('./return-summary-ipc').registerReturnSummaryIpc({ ipcMain, dialog, getWindow: () => mainWindow });
+require('./daily-outbound-ipc').registerDailyOutboundIpc({ ipcMain, dialog, getWindow: () => mainWindow });
 const smokeTest = process.env.EXCEL_TOOL_SMOKE_TEST === '1';
 
 function cellValue(cell) {
@@ -172,8 +190,17 @@ function createWindow() {
         if ('${targetView}' === 'delivery' || '${targetView}' === 'preset' || '${targetView}' === 'whPreset') document.getElementById('deliveryTab')?.click();
         if ('${targetView}' === 'inventory') document.getElementById('inventoryTab')?.click();
         if ('${targetView}' === 'invoice') document.getElementById('invoiceTab')?.click();
+        if ('${targetView}' === 'competitor') {
+          const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('市场与竞品洞察'));
+          btn?.click();
+        }
       })()`);
-      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
+
+
+
       await mainWindow.webContents.executeJavaScript(`(() => {
         if ('${targetView}' === 'preset') document.getElementById('manageProductPresetBtn')?.click();
         if ('${targetView}' === 'whPreset') document.getElementById('manageWarehousePresetBtn')?.click();
@@ -752,7 +779,106 @@ ipcMain.handle('platform-fee:save-config', async (_event, config) => {
   return writeStoredPlatformFeeConfig(config);
 });
 
+ipcMain.handle('competitor:get-sample', async () => {
+  return getMockTaoFactoryRiceTop20();
+});
+
+ipcMain.handle('competitor:parse-data', async (_event, rawData) => {
+  return normalizeCompetitorItems(rawData);
+});
+
+ipcMain.handle('competitor:start-receiver', async (_event, options) => {
+  const port = options?.port || 41235;
+  return startLocalCompetitorReceiver({
+    port,
+    onDataReceived: (items, meta) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('competitor:data-received', items, meta);
+      }
+    }
+  });
+});
+
+ipcMain.handle('competitor:stop-receiver', async () => {
+  return stopLocalCompetitorReceiver();
+});
+
+ipcMain.handle('competitor:export-excel', async (_event, payload) => {
+  const items = payload?.items || [];
+  if (!items.length) throw new Error('没有竞品数据可供导出。');
+
+  const dateStr = formatTodayDate ? formatTodayDate() : new Date().toISOString().slice(0, 10);
+  const defaultFileName = cleanText(payload?.defaultFileName) || `淘工厂大米_Top20竞品分析_${dateStr}.xlsx`;
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: '导出淘工厂大米竞品分析 Excel',
+    defaultPath: defaultFileName,
+    filters: [{ name: 'Excel 工作簿', extensions: ['xlsx'] }]
+  });
+  if (result.canceled || !result.filePath) return null;
+
+  await exportCompetitorAnalysisExcel(items, result.filePath);
+  return { ok: true, filePath: result.filePath, count: items.length };
+});
+
+ipcMain.handle('competitor:import-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择竞品数据文件（JSON 格式）',
+    properties: ['openFile'],
+    filters: [
+      { name: 'JSON 数据文件', extensions: ['json'] },
+      { name: '所有文件', extensions: ['*'] }
+    ]
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  const content = fs.readFileSync(result.filePaths[0], 'utf-8');
+  const parsed = JSON.parse(content);
+  return normalizeCompetitorItems(parsed);
+});
+
+ipcMain.handle('competitor:start-browser-crawl', async (_event, options) => {
+  const onProgress = (progress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const payload = progress.item ? { ...progress, item: normalizeCompetitorItems([progress.item])[0] } : progress;
+      mainWindow.webContents.send('competitor:crawl-progress', payload);
+    }
+  };
+  const rawList = await startBrowserCrawler({
+    ...options,
+    onProgress
+  });
+  return normalizeCompetitorItems(rawList);
+});
+
+ipcMain.handle('competitor:stop-browser-crawl', async () => {
+  stopBrowserCrawler();
+  return { ok: true };
+});
+
+ipcMain.handle('competitor:continue-browser-crawl', async () => continueBrowserCrawler());
+
+ipcMain.handle('competitor:get-tampermonkey-script', async () => {
+  const scriptPath = path.join(__dirname, '..', 'scripts', 'tampermonkey', 'taobao_factory_crawler.js');
+  if (fs.existsSync(scriptPath)) {
+    return fs.readFileSync(scriptPath, 'utf-8');
+  }
+  return '';
+});
+
+
 app.whenReady().then(() => {
+  // 允许主界面正常加载阿里 CDN / 淘宝真实商品主图，剥离 Referer 防盗链限制
+  if (session && session.defaultSession) {
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      const url = details.url || '';
+      if (url.includes('alicdn.com') || url.includes('taobao.com') || url.includes('tmall.com')) {
+        delete details.requestHeaders['Referer'];
+        delete details.requestHeaders['referer'];
+      }
+      callback({ requestHeaders: details.requestHeaders });
+    });
+  }
+
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });

@@ -1,3 +1,4 @@
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -201,17 +202,16 @@ export function DemandDialog({
                   </div>
 
                   <div>
-                    <select
-                      value={currentFactory}
-                      onChange={(e) => handleFactoryChange(w.warehouse, e.target.value)}
-                      className="h-8 w-full rounded-md border border-zinc-200 text-xs px-2 bg-white focus:outline-none focus:ring-1 focus:ring-zinc-950"
-                    >
+                    <Select value={String((currentFactory) ?? '')} onValueChange={value => handleFactoryChange(w.warehouse, value)}>
+                      <SelectTrigger className="h-8 w-full text-xs" aria-label="选择发货米厂"><SelectValue placeholder="请选择" /></SelectTrigger>
+                      <SelectContent><SelectGroup>
                       {presetFactories.map((f) => (
-                        <option key={f} value={f}>
+                        <SelectItem key={f} value={String(f)}>
                           {f}
-                        </option>
+                        </SelectItem>
                       ))}
-                    </select>
+                    </SelectGroup></SelectContent>
+                    </Select>
                   </div>
 
                   <div>

@@ -389,9 +389,9 @@ export function DeliveryView({
               <span className="text-[11px] font-medium text-zinc-600">生成品牌</span>
               {availableBrands.length > 0 && (
                 <div className="flex items-center gap-1 text-[11px]">
-                  <button type="button" onClick={() => onSelectAllBrands && onSelectAllBrands(availableBrands)} className="text-zinc-500 hover:text-zinc-900 cursor-pointer">全选</button>
+                  <Button variant="ghost" size="unstyled" type="button" onClick={() => onSelectAllBrands && onSelectAllBrands(availableBrands)} className="text-zinc-500 hover:text-zinc-900 cursor-pointer">全选</Button>
                   <span className="text-zinc-300">|</span>
-                  <button type="button" onClick={() => onClearBrands && onClearBrands()} className="text-zinc-500 hover:text-zinc-900 cursor-pointer">清空</button>
+                  <Button variant="ghost" size="unstyled" type="button" onClick={() => onClearBrands && onClearBrands()} className="text-zinc-500 hover:text-zinc-900 cursor-pointer">清空</Button>
                 </div>
               )}
             </div>
@@ -404,7 +404,7 @@ export function DeliveryView({
                   const isSelected = selectedBrands.has(brandName);
                   const count = typeof b === 'object' ? (b.rowCount ?? b.productCount) : null;
                   return (
-                    <button
+                    <Button variant="ghost" size="unstyled"
                       key={brandName}
                       type="button"
                       onClick={() => onToggleBrand(brandName)}
@@ -414,7 +414,7 @@ export function DeliveryView({
                     >
                       <span>{brandName}</span>
                       {count !== null && <span className="text-[10px] opacity-70 tabular-nums">({count})</span>}
-                    </button>
+                    </Button>
                   );
                 })
               )}
@@ -427,9 +427,9 @@ export function DeliveryView({
               <span className="text-[11px] font-medium text-zinc-600">生成仓库</span>
               {availableWarehouses.length > 0 && (
                 <div className="flex items-center gap-1 text-[11px]">
-                  <button type="button" onClick={() => onSelectAllWarehouses && onSelectAllWarehouses(availableWarehouses)} className="text-zinc-500 hover:text-zinc-900 cursor-pointer">全选</button>
+                  <Button variant="ghost" size="unstyled" type="button" onClick={() => onSelectAllWarehouses && onSelectAllWarehouses(availableWarehouses)} className="text-zinc-500 hover:text-zinc-900 cursor-pointer">全选</Button>
                   <span className="text-zinc-300">|</span>
-                  <button type="button" onClick={() => onClearWarehouses && onClearWarehouses()} className="text-zinc-500 hover:text-zinc-900 cursor-pointer">清空</button>
+                  <Button variant="ghost" size="unstyled" type="button" onClick={() => onClearWarehouses && onClearWarehouses()} className="text-zinc-500 hover:text-zinc-900 cursor-pointer">清空</Button>
                 </div>
               )}
             </div>
@@ -442,7 +442,7 @@ export function DeliveryView({
                   const isSelected = selectedWarehouses.has(whName);
                   const count = typeof wh === 'object' ? wh.rowCount : null;
                   return (
-                    <button
+                    <Button variant="ghost" size="unstyled"
                       key={whName}
                       type="button"
                       onClick={() => onToggleWarehouse(whName)}
@@ -452,7 +452,7 @@ export function DeliveryView({
                     >
                       <span>{whName}</span>
                       {count !== null && <span className="text-[10px] opacity-70 tabular-nums">({count})</span>}
-                    </button>
+                    </Button>
                   );
                 })
               )}
@@ -509,7 +509,7 @@ export function DeliveryView({
           <div className="flex items-center gap-3">
             {/* View Mode Tabs */}
             <div className="flex items-center gap-1 bg-zinc-100 p-0.5 rounded-lg border border-zinc-200">
-              <button
+              <Button variant="ghost" size="unstyled"
                 type="button"
                 onClick={() => setPreviewTab('products')}
                 className={cn(
@@ -519,8 +519,8 @@ export function DeliveryView({
               >
                 <Calendar className="size-3.5" />
                 <span>商品与生产日期 ({allProducts.length})</span>
-              </button>
-              <button
+              </Button>
+              <Button variant="ghost" size="unstyled"
                 type="button"
                 onClick={() => setPreviewTab('deliveryRows')}
                 className={cn(
@@ -530,7 +530,7 @@ export function DeliveryView({
               >
                 <FileSpreadsheet className="size-3.5" />
                 <span>送货单导出预览 ({deliveryPreviewRows.length})</span>
-              </button>
+              </Button>
             </div>
 
             {previewTab === 'products' && (
@@ -706,7 +706,7 @@ export function DeliveryView({
                           )}
                         </div>
                         <div className="flex items-center justify-end gap-1 pr-1" onClick={(e) => e.stopPropagation()}>
-                          <button
+                          <Button variant="ghost" size="unstyled"
                             type="button"
                             onClick={() => {
                               const d = new Date();
@@ -719,16 +719,16 @@ export function DeliveryView({
                             title="快捷设为今日"
                           >
                             设为今日
-                          </button>
+                          </Button>
                           {curDate && (
-                            <button
+                            <Button variant="ghost" size="unstyled"
                               type="button"
                               onClick={() => handleSetSingleDate(key, '')}
                               className="px-1 py-0.5 rounded text-[10px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
                               title="清除日期"
                             >
                               清除
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </div>

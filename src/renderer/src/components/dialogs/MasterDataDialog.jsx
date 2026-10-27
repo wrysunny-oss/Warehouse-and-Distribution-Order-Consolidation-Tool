@@ -1,3 +1,6 @@
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
@@ -468,9 +471,9 @@ export function MasterDataDialog({
                         <TableCell className="text-right tabular-nums">{f.boxSpec}</TableCell>
                         <TableCell className="text-right tabular-nums">{f.spec}</TableCell>
                         <TableCell className="text-center">
-                          <button onClick={() => handleDeleteProduct(idx)} className="text-zinc-400 hover:text-red-600 p-1 cursor-pointer">
+                          <Button variant="ghost" size="unstyled" onClick={() => handleDeleteProduct(idx)} className="text-zinc-400 hover:text-red-600 p-1 cursor-pointer">
                             <Trash2 className="size-3.5" />
-                          </button>
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -515,29 +518,29 @@ export function MasterDataDialog({
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button variant="ghost" size="unstyled"
                     type="button"
                     onClick={handleSelectAllStats}
                     className="text-[11px] text-zinc-800 hover:text-black font-medium hover:underline cursor-pointer"
                   >
                     全选参与
-                  </button>
+                  </Button>
                   <span className="text-zinc-300">|</span>
-                  <button
+                  <Button variant="ghost" size="unstyled"
                     type="button"
                     onClick={handleDeselectAllStats}
                     className="text-[11px] text-zinc-500 hover:text-zinc-800 hover:underline cursor-pointer"
                   >
                     取消全选
-                  </button>
+                  </Button>
                   <span className="text-zinc-300">|</span>
-                  <button
+                  <Button variant="ghost" size="unstyled"
                     type="button"
                     onClick={handleSelectStandard16}
                     className="text-[11px] text-zinc-950 font-semibold hover:underline cursor-pointer"
                   >
                     标配商超仓 (16仓)
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -555,12 +558,7 @@ export function MasterDataDialog({
                 </div>
                 <div className="flex items-center justify-between pt-1 border-t border-zinc-200/60">
                   <label className="flex items-center gap-1.5 cursor-pointer select-none text-zinc-700">
-                    <input
-                      type="checkbox"
-                      checked={newWarehouse.inStats}
-                      onChange={(e) => setNewWarehouse({ ...newWarehouse, inStats: e.target.checked })}
-                      className="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900"
-                    />
+                    <Checkbox checked={newWarehouse.inStats} className="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900" onCheckedChange={checked => setNewWarehouse({ ...newWarehouse, inStats: (checked === true) })} aria-label="参与补货统计" />
                     <span>纳入补货需求统计范围 (在第一步配送仓库列表中展示并参与汇总)</span>
                   </label>
                   <div className="flex items-center gap-2">
@@ -600,20 +598,9 @@ export function MasterDataDialog({
                           {/* 参与统计 Checkbox */}
                           <TableCell className="text-center">
                             {isEditing ? (
-                              <input
-                                type="checkbox"
-                                checked={editWarehouseForm.inStats}
-                                onChange={(e) => setEditWarehouseForm({ ...editWarehouseForm, inStats: e.target.checked })}
-                                className="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
-                              />
+                              <Checkbox checked={editWarehouseForm.inStats} className="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer" onCheckedChange={checked => setEditWarehouseForm({ ...editWarehouseForm, inStats: (checked === true) })} aria-label="参与补货统计" />
                             ) : (
-                              <input
-                                type="checkbox"
-                                checked={f.inStats}
-                                onChange={() => handleToggleStats(actualIdx)}
-                                title={f.inStats ? "已参与统计（点击取消）" : "未参与统计（点击勾选）"}
-                                className="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer"
-                              />
+                              <Checkbox checked={f.inStats} title={f.inStats ? "已参与统计（点击取消）" : "未参与统计（点击勾选）"} className="size-3.5 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900 cursor-pointer" onCheckedChange={() => handleToggleStats(actualIdx)} aria-label="参与补货统计" />
                             )}
                           </TableCell>
 
@@ -707,41 +694,41 @@ export function MasterDataDialog({
                           <TableCell className="text-center">
                             {isEditing ? (
                               <div className="flex items-center justify-center gap-1">
-                                <button
+                                <Button variant="ghost" size="unstyled"
                                   type="button"
                                   onClick={handleSaveEditWarehouse}
                                   className="text-zinc-900 hover:text-emerald-700 p-1 cursor-pointer"
                                   title="保存修改"
                                 >
                                   <Check className="size-3.5 text-emerald-700" />
-                                </button>
-                                <button
+                                </Button>
+                                <Button variant="ghost" size="unstyled"
                                   type="button"
                                   onClick={handleCancelEditWarehouse}
                                   className="text-zinc-400 hover:text-zinc-600 p-1 cursor-pointer"
                                   title="取消修改"
                                 >
                                   <X className="size-3.5" />
-                                </button>
+                                </Button>
                               </div>
                             ) : (
                               <div className="flex items-center justify-center gap-1">
-                                <button
+                                <Button variant="ghost" size="unstyled"
                                   type="button"
                                   onClick={() => handleStartEditWarehouse(actualIdx)}
                                   className="text-zinc-400 hover:text-zinc-900 p-1 cursor-pointer"
                                   title="修改仓库信息"
                                 >
                                   <Pencil className="size-3.5" />
-                                </button>
-                                <button
+                                </Button>
+                                <Button variant="ghost" size="unstyled"
                                   type="button"
                                   onClick={() => handleDeleteWarehouse(actualIdx)}
                                   className="text-zinc-400 hover:text-red-600 p-1 cursor-pointer"
                                   title="删除仓库"
                                 >
                                   <Trash2 className="size-3.5" />
-                                </button>
+                                </Button>
                               </div>
                             )}
                           </TableCell>
@@ -791,16 +778,15 @@ export function MasterDataDialog({
                       <TableRow key={idx}>
                         <TableCell className="font-medium text-zinc-950">{r.source}</TableCell>
                         <TableCell>
-                          <select
-                            value={mappingDraft[r.source] || ''}
-                            onChange={(e) => setMappingDraft({ ...mappingDraft, [r.source]: e.target.value })}
-                            className="w-full text-xs border border-zinc-300 rounded px-2 py-1 bg-white focus:border-zinc-900 outline-none"
-                          >
-                            <option value="">-- 请选择映射仓库 --</option>
+                          <Select value={String((mappingDraft[r.source] || '') ?? '') || '__none__'} onValueChange={value => setMappingDraft({ ...mappingDraft, [r.source]: (value === '__none__' ? '' : value) })}>
+                      <SelectTrigger className="h-8 w-full text-xs" aria-label="选择映射仓库"><SelectValue placeholder="请选择" /></SelectTrigger>
+                      <SelectContent><SelectGroup>
+                            <SelectItem value="__none__">-- 请选择映射仓库 --</SelectItem>
                             {directWarehouses.map((w, widx) => (
-                              <option key={widx} value={w}>{w}</option>
+                              <SelectItem key={widx} value={String(w)}>{w}</SelectItem>
                             ))}
-                          </select>
+                          </SelectGroup></SelectContent>
+                    </Select>
                         </TableCell>
                       </TableRow>
                     ))
@@ -828,7 +814,7 @@ export function MasterDataDialog({
                 </Button>
               </div>
             </div>
-            <textarea
+            <Textarea
               value={catalogText}
               onChange={(e) => setCatalogText(e.target.value)}
               placeholder="每行一个商品简称..."

@@ -2,8 +2,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { ReplenishHubView } from '@/components/views/ReplenishHubView';
+import { DailyOutboundView } from '@/components/views/DailyOutboundView';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { DeliveryView } from '@/components/views/DeliveryView';
 import { InvoiceView } from '@/components/views/InvoiceView';
+import { CompetitorView } from '@/components/views/CompetitorView';
+import { ReturnSummaryView } from '@/components/views/ReturnSummaryView';
+
 
 import { MasterDataDialog } from '@/components/dialogs/MasterDataDialog';
 import { BackfillDialog } from '@/components/dialogs/BackfillDialog';
@@ -41,6 +46,9 @@ function normalizeProductNames(values) {
 
 export function App() {
   const [workflow, setWorkflow] = useState('replenish');
+  const [replenishWorkspace, setReplenishWorkspace] = useState('existing');
+  const [dailyOutboundState, setDailyOutboundState] = useState(null);
+  const [returnSummaryState, setReturnSummaryState] = useState({ source: null, type: '', analysis: null, titleOverride: null, busy: false, error: '', masterKey: '' });
   const [masterDataOpen, setMasterDataOpen] = useState(false);
   const [masterDataTab, setMasterDataTab] = useState('products');
   const [pipedFromSummary, setPipedFromSummary] = useState(false);
@@ -1042,6 +1050,7 @@ export function App() {
       <div className="flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden bg-slate-50">
         <Header
           workflow={workflow}
+          replenishDaily={replenishWorkspace === 'daily'}
           // Replenish
           summaryModeText={summaryModeText}
           summaryCanExport={Boolean(result?.rows?.length)}
@@ -1067,6 +1076,9 @@ export function App() {
         {/* View Areas */}
         <div className="flex-1 min-h-0 flex flex-col min-w-0 overflow-hidden">
           {workflow === 'replenish' && (
+            <Tabs value={replenishWorkspace} onValueChange={setReplenishWorkspace} className="flex-1 min-h-0 min-w-0 flex flex-col">
+              <TabsList aria-label="补货业务" className="self-start mx-5 mt-4 shrink-0"><TabsTrigger value="existing">补货与库存协同</TabsTrigger><TabsTrigger value="daily">日出库补货</TabsTrigger></TabsList>
+              <TabsContent value="existing" className="flex-1 min-h-0 min-w-0 flex flex-col data-[state=inactive]:hidden m-0">
             <ReplenishHubView
               // Step 1 props
               table2={table2}
@@ -1111,6 +1123,9 @@ export function App() {
               onPipeToInventory={handlePipeToInventory}
               onClearPipedTable3={handleClearPipedTable3}
             />
+              </TabsContent>
+              <TabsContent value="daily" className="flex-1 min-h-0 min-w-0 flex flex-col data-[state=inactive]:hidden m-0"><DailyOutboundView model={dailyOutboundState} setModel={setDailyOutboundState} /></TabsContent>
+            </Tabs>
           )}
 
           {workflow === 'delivery' && (
@@ -1159,8 +1174,14 @@ export function App() {
               notice={invoiceNotice}
             />
           )}
+
+          {workflow === 'returns' && <ReturnSummaryView state={returnSummaryState} setState={setReturnSummaryState} productPresets={productPresets} onOpenProducts={() => { setMasterDataTab('products'); setMasterDataOpen(true); }} />}
+          {workflow === 'competitor' && (
+            <CompetitorView />
+          )}
         </div>
       </div>
+
 
       {/* Unified Master Data & Presets Center */}
       <MasterDataDialog

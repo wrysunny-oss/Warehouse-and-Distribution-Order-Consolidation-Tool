@@ -86,7 +86,8 @@ function sanitizeProductRow(row, index = 1) {
   const fullName = cleanText(row['货品名称（带空格）'] || row['货品名称']);
   const barcode = cleanText(row['条码'] || row['条形码']);
   const brand = cleanText(row['品牌名称']);
-  const shortName = cleanText(row['订单简称'] || row['企业微信申报订单简称'] || fullName);
+  // Preserve an explicitly blank short name so strict workflows can report missing master data.
+  const shortName = cleanText(Object.hasOwn(row, '订单简称') ? row['订单简称'] : (row['企业微信申报订单简称'] || fullName));
   const spec = numberValue(row['规格kg'] || row['规格']) || 0;
   const boxSpec = numberValue(row['采购规格(箱规数)'] || row['采购规格'] || row['箱规']) || 1;
   const note = cleanText(row['备注']);

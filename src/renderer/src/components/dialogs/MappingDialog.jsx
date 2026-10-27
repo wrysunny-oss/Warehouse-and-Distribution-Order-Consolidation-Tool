@@ -1,3 +1,4 @@
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Dialog,
@@ -125,22 +126,17 @@ export function MappingDialog({
                   </div>
 
                   <div>
-                    <select
-                      value={currentTarget}
-                      onChange={(e) => handleSelectChange(row.source, e.target.value)}
-                      className={`h-8 w-full rounded-md border text-xs px-2.5 bg-white transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-950 ${
-                        isUnresolved
-                          ? 'border-amber-300 text-amber-900 bg-amber-50/30'
-                          : 'border-zinc-200 text-zinc-800'
-                      }`}
-                    >
-                      <option value="">-- 请选择直营仓 --</option>
+                    <Select value={String((currentTarget) ?? '') || '__none__'} onValueChange={value => handleSelectChange(row.source, (value === '__none__' ? '' : value))}>
+                      <SelectTrigger className="h-8 w-full text-xs" aria-label="选择映射仓库"><SelectValue placeholder="请选择" /></SelectTrigger>
+                      <SelectContent><SelectGroup>
+                      <SelectItem value="__none__">-- 请选择直营仓 --</SelectItem>
                       {directWarehouses.map((wh) => (
-                        <option key={wh} value={wh}>
+                        <SelectItem key={wh} value={String(wh)}>
                           {wh}
-                        </option>
+                        </SelectItem>
                       ))}
-                    </select>
+                    </SelectGroup></SelectContent>
+                    </Select>
                   </div>
                 </div>
               );

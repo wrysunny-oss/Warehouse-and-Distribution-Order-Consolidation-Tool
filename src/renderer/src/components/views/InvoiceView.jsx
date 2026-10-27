@@ -105,7 +105,7 @@ export function InvoiceView({
     <main id="invoiceView" className="flex-1 p-6 flex flex-col gap-4 select-none overflow-y-auto">
       {/* 顶部财务功能子模块切换 */}
       <div className="flex items-center gap-2 border-b border-zinc-200/80 pb-3">
-        <button
+        <Button variant="ghost" size="unstyled"
           type="button"
           onClick={() => setSubTab('goods')}
           className={cn(
@@ -117,8 +117,8 @@ export function InvoiceView({
         >
           <ReceiptText className="size-3.5" />
           商品开票通知单
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="unstyled"
           type="button"
           onClick={() => setSubTab('platformFee')}
           className={cn(
@@ -130,7 +130,7 @@ export function InvoiceView({
         >
           <FileSpreadsheet className="size-3.5" />
           平台费用核销汇总 (输入表一 → 输出表二)
-        </button>
+        </Button>
       </div>
 
       {subTab === 'platformFee' ? (
@@ -264,7 +264,7 @@ export function InvoiceView({
                   {availableFeeTypes.map((type) => {
                     const isSelected = selectedFeeTypes.has(type);
                     return (
-                      <button
+                      <Button variant="ghost" size="unstyled"
                         key={type}
                         type="button"
                         onClick={() => onToggleFeeType(type)}
@@ -275,7 +275,7 @@ export function InvoiceView({
                         }`}
                       >
                         {type}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -325,7 +325,7 @@ export function InvoiceView({
                   {availableInvoiceDirs.map((dir) => {
                     const isSelected = selectedInvoiceDirs.has(dir);
                     return (
-                      <button
+                      <Button variant="ghost" size="unstyled"
                         key={dir}
                         type="button"
                         onClick={() => onToggleInvoiceDir(dir)}
@@ -336,7 +336,7 @@ export function InvoiceView({
                         }`}
                       >
                         {dir}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -388,14 +388,14 @@ export function InvoiceView({
                     <span className="truncate max-w-[260px]" title={fileName}>
                       {fileName} {f.rowCount ? <span className="text-zinc-400 font-normal">({f.rowCount}行{f.timeRange ? ` · ${f.timeRange}` : ''})</span> : null}
                     </span>
-                    <button
+                    <Button variant="ghost" size="unstyled"
                       type="button"
                       onClick={() => onRemoveInvoiceFile(filePath)}
                       className="text-zinc-400 hover:text-zinc-900 cursor-pointer p-0.5 rounded-full hover:bg-zinc-100"
                       title="移除此文件"
                     >
                       <X className="h-3 w-3" />
-                    </button>
+                    </Button>
                   </span>
                 );
               })}

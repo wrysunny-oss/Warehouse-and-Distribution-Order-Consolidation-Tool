@@ -1,3 +1,4 @@
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
 import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -172,7 +173,7 @@ export function ReplenishHubView({
       <div className="bg-white rounded-2xl border border-zinc-200/90 p-2.5 shadow-xs flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Step 1 Button */}
-          <button
+          <Button variant="ghost" size="unstyled"
             type="button"
             onClick={() => setActiveStep('summary')}
             className={cn(
@@ -199,12 +200,12 @@ export function ReplenishHubView({
                 导入表一与表二 · 自动折算箱数与吨数
               </div>
             </div>
-          </button>
+          </Button>
 
           <ArrowRight className="size-3.5 text-zinc-400 shrink-0" />
 
           {/* Step 2 Button */}
-          <button
+          <Button variant="ghost" size="unstyled"
             type="button"
             onClick={() => setActiveStep('inventory')}
             className={cn(
@@ -231,7 +232,7 @@ export function ReplenishHubView({
                 校准 WMS 实时良品可用 · 挂接库存在途
               </div>
             </div>
-          </button>
+          </Button>
         </div>
 
         {/* Quick hint on right */}
@@ -351,21 +352,18 @@ export function ReplenishHubView({
                     {brands.length ? `${brands.length} 个候选` : '自动识别'}
                   </span>
                 </div>
-                <select
-                  id="brandSelect"
-                  value={selectedBrand}
-                  onChange={(e) => onBrandChange(e.target.value)}
-                  disabled={!brands.length}
-                  className="w-full h-8 text-xs font-medium border border-zinc-300 rounded-lg px-2 bg-zinc-50 text-zinc-900 focus:border-zinc-900 outline-none"
-                >
+                <Select value={String((selectedBrand) ?? '') || '__none__'} onValueChange={value => onBrandChange((value === '__none__' ? '' : value))} disabled={!brands.length}>
+                      <SelectTrigger id="brandSelect" className="h-8 w-full text-xs"><SelectValue placeholder="请选择" /></SelectTrigger>
+                      <SelectContent><SelectGroup>
                   {brands.length ? (
                     brands.map((b) => (
-                      <option key={b} value={b}>{b}</option>
+                      <SelectItem key={b} value={String(b)}>{b}</SelectItem>
                     ))
                   ) : (
-                    <option value="">导入表二后可选</option>
+                    <SelectItem value="__none__">导入表二后可选</SelectItem>
                   )}
-                </select>
+                </SelectGroup></SelectContent>
+                    </Select>
                 {isHubMode && (
                   <div className="mt-2 px-2 py-1 bg-amber-50/80 border border-amber-200/90 rounded-md text-[11px] text-amber-900 flex items-center justify-between">
                     <span className="font-medium">集货模式：武汉商超仓 + 武汉集货仓（汇总其余所有仓）</span>
@@ -374,27 +372,27 @@ export function ReplenishHubView({
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-zinc-100 text-[11px] gap-2">
-                <button
+                <Button variant="ghost" size="unstyled"
                   type="button"
                   onClick={onOpenMapping}
                   className="text-zinc-900 hover:underline font-medium cursor-pointer"
                 >
                   仓库映射 {mappingCount > 0 && `(${mappingCount}待处理)`}
-                </button>
-                <button
+                </Button>
+                <Button variant="ghost" size="unstyled"
                   type="button"
                   onClick={onOpenWarehousePreset}
                   className="text-zinc-900 font-semibold hover:underline cursor-pointer flex items-center gap-1"
                 >
                   {isHubMode ? '统计仓库 (2仓·集货汇总)' : `统计仓库 (${statsWarehouseCount || 0}个)`}
-                </button>
-                <button
+                </Button>
+                <Button variant="ghost" size="unstyled"
                   type="button"
                   onClick={onOpenProductCatalog}
                   className="text-zinc-600 hover:text-zinc-900 cursor-pointer"
                 >
                   商品目录排序
-                </button>
+                </Button>
               </div>
             </Card>
           </div>
@@ -521,15 +519,14 @@ export function ReplenishHubView({
                               {formatNumber(row.actualWeight || row.weight)}
                             </TableCell>
                             <TableCell className="text-center">
-                              <select
-                                value={row.arrangement || ''}
-                                onChange={(e) => onWarehouseStatusChange(row.warehouse, e.target.value)}
-                                className="text-[11px] border border-zinc-300 rounded px-1.5 py-0.5 bg-white font-medium text-zinc-900 outline-none focus:border-zinc-900"
-                              >
-                                <option value="">正常安排</option>
-                                <option value="取消">取消整仓</option>
-                                <option value="延期">延期发货</option>
-                              </select>
+                              <Select value={String((row.arrangement || '') ?? '') || '__none__'} onValueChange={value => onWarehouseStatusChange(row.warehouse, (value === '__none__' ? '' : value))}>
+                      <SelectTrigger className="h-8 w-full text-xs" aria-label="安排状态"><SelectValue placeholder="请选择" /></SelectTrigger>
+                      <SelectContent><SelectGroup>
+                                <SelectItem value="__none__">正常安排</SelectItem>
+                                <SelectItem value="取消">取消整仓</SelectItem>
+                                <SelectItem value="延期">延期发货</SelectItem>
+                              </SelectGroup></SelectContent>
+                    </Select>
                             </TableCell>
                           </TableRow>
                         );
@@ -546,7 +543,7 @@ export function ReplenishHubView({
                             {formatNumber(row.systemOrder ?? 0)}
                           </TableCell>
                           <TableCell className="text-right">
-                            <input
+                            <Input
                               type="number"
                               min="0"
                               value={row.actualOrder ?? row.systemOrder ?? 0}

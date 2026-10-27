@@ -1,0 +1,415 @@
+{
+  "item": {
+    "itemId": "1024450728976",
+    "title": "25年新米五常大米GB/T19266大米粳米真空10斤优质东北大米当季",
+    "vagueSellCount": "4万+"
+  },
+  "skuBase": {
+    "components": [],
+    "skus": [
+      {
+        "propPath": "-1:-1",
+        "skuId": "6203322622941"
+      },
+      {
+        "propPath": "-1:-2",
+        "skuId": "6198961238130"
+      }
+    ],
+    "props": [
+      {
+        "hasGroupTags": "false",
+        "packProp": "false",
+        "shouldGroup": "false",
+        "comboProperty": "false",
+        "values": [
+          {
+            "comboPropertyValue": "false",
+            "vid": "-1",
+            "corner": {
+              "cornerBackgroundColor": "#ff5000",
+              "skuCornerIcon": "",
+              "cornerPVPath": "-1:-1",
+              "cornerBorderColor": "#FFFFFF",
+              "cornerTextColor": "#FFFFFF",
+              "cornerText": "60%人选择"
+            },
+            "name": "正宗五常大米2.5kg*1袋（GB/T19266）真空",
+            "selected": true,
+            "empty": false
+          },
+          {
+            "comboPropertyValue": "false",
+            "vid": "-2",
+            "corner": {},
+            "name": "正宗五常大米5kg*1袋（GB/T19266）真空",
+            "selected": false,
+            "empty": false
+          }
+        ],
+        "hasImage": "false",
+        "pid": "-1",
+        "name": "商品规格",
+        "showSizeRecommend": "false",
+        "valueMap": {
+          "-1": {
+            "comboPropertyValue": "false",
+            "vid": "-1",
+            "corner": {
+              "cornerBackgroundColor": "#ff5000",
+              "skuCornerIcon": "",
+              "cornerPVPath": "-1:-1",
+              "cornerBorderColor": "#FFFFFF",
+              "cornerTextColor": "#FFFFFF",
+              "cornerText": "60%人选择"
+            },
+            "name": "正宗五常大米2.5kg*1袋（GB/T19266）真空",
+            "selected": true,
+            "empty": false
+          },
+          "-2": {
+            "comboPropertyValue": "false",
+            "vid": "-2",
+            "corner": {},
+            "name": "正宗五常大米5kg*1袋（GB/T19266）真空",
+            "selected": false,
+            "empty": false
+          }
+        }
+      }
+    ]
+  },
+  "skuCore": {
+    "sku2info": {
+      "0": {
+        "price": {
+          "priceTitle": "优惠前",
+          "priceColorNew": "#FFFFFF",
+          "priceText": "21.9",
+          "priceDesc": "起",
+          "priceMoney": "2190"
+        },
+        "subPrice": {
+          "priceColor": "#FFFFFF",
+          "priceTitle": "秒杀价",
+          "priceColorNew": "#FFFFFF",
+          "priceBgColor": "#FF5000",
+          "priceTitleColor": "#FFFFFF",
+          "fuzzyPrice": "true",
+          "priceText": "1?"
+        },
+        "logisticsTime": "预计明天发货，超24小时必赔"
+      },
+      "6198961238130": {
+        "price": {
+          "priceTitle": "优惠前",
+          "priceColorNew": "#FFFFFF",
+          "priceText": "41.9",
+          "priceMoney": "4190"
+        },
+        "subPrice": {
+          "priceColor": "#FFFFFF",
+          "priceTitle": "秒杀价",
+          "priceColorNew": "#FFFFFF",
+          "priceBgColor": "#FF5000",
+          "priceTitleColor": "#FFFFFF",
+          "fuzzyPrice": "true",
+          "priceText": "3?"
+        },
+        "logisticsTime": "预计明天发货，超24小时必赔"
+      },
+      "6203322622941": {
+        "price": {
+          "priceTitle": "优惠前",
+          "priceColorNew": "#FFFFFF",
+          "priceText": "21.9",
+          "priceMoney": "2190"
+        },
+        "subPrice": {
+          "priceColor": "#FFFFFF",
+          "priceTitle": "秒杀价",
+          "priceColorNew": "#FFFFFF",
+          "priceBgColor": "#FF5000",
+          "priceTitleColor": "#FFFFFF",
+          "fuzzyPrice": "true",
+          "priceText": "1?"
+        },
+        "logisticsTime": "预计明天发货，超24小时必赔"
+      }
+    }
+  },
+  "plusViewVO": {
+    "industryParamVO": {
+      "hit": "true",
+      "enhanceParamList": [
+        {
+          "valueName": "优质一等",
+          "propertyName": "等级",
+          "structPv": "false"
+        },
+        {
+          "valueName": "五常大米",
+          "propertyName": "特产品类",
+          "structPv": "false"
+        },
+        {
+          "valueName": "5kg",
+          "propertyName": "单件净含量",
+          "structPv": "false"
+        },
+        {
+          "valueName": "五常米",
+          "propertyName": "大米品种",
+          "structPv": "false"
+        },
+        {
+          "valueName": "真空包装",
+          "propertyName": "包装方式",
+          "structPv": "false"
+        },
+        {
+          "valueName": "哈尔滨市",
+          "propertyName": "城市",
+          "structPv": "false"
+        },
+        {
+          "valueName": "五常大米",
+          "propertyName": "是否地理标志",
+          "structPv": "false"
+        }
+      ],
+      "basicParamList": [
+        {
+          "valueName": "凹选",
+          "propertyName": "品牌"
+        },
+        {
+          "valueName": "五常大米",
+          "propertyName": "系列"
+        },
+        {
+          "valueName": "中国大陆",
+          "propertyName": "产地"
+        },
+        {
+          "valueName": "黑龙江省",
+          "propertyName": "省份"
+        },
+        {
+          "valueName": "袋装",
+          "propertyName": "包装种类"
+        },
+        {
+          "valueName": "通用",
+          "propertyName": "适用场景"
+        },
+        {
+          "valueName": "1袋",
+          "propertyName": "包装规格"
+        },
+        {
+          "valueName": "五常大米",
+          "propertyName": "品名"
+        },
+        {
+          "valueName": "国产",
+          "propertyName": "是否进口"
+        },
+        {
+          "valueName": "SC10123018404592",
+          "propertyName": "生产许可证编号"
+        },
+        {
+          "valueName": "五常市嘉柏吉粮油食品有限公司",
+          "propertyName": "厂名"
+        },
+        {
+          "valueName": "五常市牛家经济开发区黑大公路07号",
+          "propertyName": "厂址"
+        },
+        {
+          "valueName": "粳稻谷",
+          "propertyName": "配料表"
+        },
+        {
+          "valueName": "阴凉 通风 干燥处",
+          "propertyName": "储藏方法"
+        },
+        {
+          "valueName": "365天",
+          "propertyName": "保质期"
+        },
+        {
+          "valueName": "无",
+          "propertyName": "食品添加剂"
+        }
+      ]
+    }
+  },
+  "componentsVO": {
+    "deliveryVO": {
+      "freight": "快递: 免运费",
+      "agingDesc": "预计明天发货，超24小时必赔"
+    },
+    "rateVO": {
+      "group": {
+        "items": [
+          {
+            "content": "大米收到，两层包装，内层为真空包装，包装日期新鲜，好吃还会再来。"
+          },
+          {
+            "content": "五常大米这次双层包装，且真空包装，非常好，易保存，虽未尝吃，因多次购买，故好评！"
+          }
+        ]
+      }
+    },
+    "extensionInfoVO": {
+      "infos": [
+        {
+          "title": "参数",
+          "type": "BASE_PROPS",
+          "items": [
+            {
+              "text": [
+                "凹选"
+              ],
+              "title": "品牌"
+            },
+            {
+              "text": [
+                "五常大米"
+              ],
+              "title": "系列"
+            },
+            {
+              "text": [
+                "中国大陆"
+              ],
+              "title": "产地"
+            },
+            {
+              "text": [
+                "黑龙江省"
+              ],
+              "title": "省份"
+            },
+            {
+              "text": [
+                "哈尔滨市"
+              ],
+              "title": "城市"
+            },
+            {
+              "text": [
+                "五常米"
+              ],
+              "title": "大米品种"
+            },
+            {
+              "text": [
+                "袋装"
+              ],
+              "title": "包装种类"
+            },
+            {
+              "text": [
+                "真空包装"
+              ],
+              "title": "包装方式"
+            },
+            {
+              "text": [
+                "五常大米"
+              ],
+              "title": "特产品类"
+            },
+            {
+              "text": [
+                "优质一等"
+              ],
+              "title": "等级"
+            },
+            {
+              "text": [
+                "通用"
+              ],
+              "title": "适用场景"
+            },
+            {
+              "text": [
+                "1袋"
+              ],
+              "title": "包装规格"
+            },
+            {
+              "text": [
+                "5kg"
+              ],
+              "title": "单件净含量"
+            },
+            {
+              "text": [
+                "五常大米"
+              ],
+              "title": "品名"
+            },
+            {
+              "text": [
+                "五常大米"
+              ],
+              "title": "是否地理标志"
+            },
+            {
+              "text": [
+                "国产"
+              ],
+              "title": "是否进口"
+            },
+            {
+              "text": [
+                "SC10123018404592"
+              ],
+              "title": "生产许可证编号"
+            },
+            {
+              "text": [
+                "五常市嘉柏吉粮油食品有限公司"
+              ],
+              "title": "厂名"
+            },
+            {
+              "text": [
+                "五常市牛家经济开发区黑大公路07号"
+              ],
+              "title": "厂址"
+            },
+            {
+              "text": [
+                "粳稻谷"
+              ],
+              "title": "配料表"
+            },
+            {
+              "text": [
+                "阴凉 通风 干燥处"
+              ],
+              "title": "储藏方法"
+            },
+            {
+              "text": [
+                "365天"
+              ],
+              "title": "保质期"
+            },
+            {
+              "text": [
+                "无"
+              ],
+              "title": "食品添加剂"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
 import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -168,23 +169,20 @@ export function SummaryView({
           <label htmlFor="brandSelect" className="text-[11px] font-medium text-zinc-500 mb-1">
             汇总品牌
           </label>
-          <select
-            id="brandSelect"
-            disabled={!table2 || brands.length === 0}
-            value={selectedBrand}
-            onChange={(e) => onBrandChange(e.target.value)}
-            className="h-8 rounded-md border border-zinc-200 bg-white px-2.5 text-xs text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-950 disabled:opacity-50"
-          >
+          <Select value={String((selectedBrand) ?? '') || '__none__'} onValueChange={value => onBrandChange((value === '__none__' ? '' : value))} disabled={!table2 || brands.length === 0}>
+                      <SelectTrigger id="brandSelect" className="h-8 w-full text-xs"><SelectValue placeholder="请选择" /></SelectTrigger>
+                      <SelectContent><SelectGroup>
             {!table2 ? (
-              <option>请先导入表二</option>
+              <SelectItem value="__none__">请先导入表二</SelectItem>
             ) : (
               brands.map((b) => (
-                <option key={b} value={b}>
+                <SelectItem key={b} value={String(b)}>
                   {b}
-                </option>
+                </SelectItem>
               ))
             )}
-          </select>
+          </SelectGroup></SelectContent>
+                    </Select>
         </Card>
 
         {/* Auxiliary actions */}

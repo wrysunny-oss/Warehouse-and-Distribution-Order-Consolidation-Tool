@@ -7,6 +7,9 @@
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
+    "build:userscript": "node scripts/build-tampermonkey.cjs",
+    "prebuild": "npm run build:userscript",
+    "prebuild:ui": "npm run build:userscript",
     "build:ui": "vite build",
     "build": "vite build",
     "dev:ui": "vite",
@@ -22,8 +25,14 @@
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.12",
     "@radix-ui/react-dialog": "^1.2.0",
+    "@radix-ui/react-label": "^2.1.17",
+    "@radix-ui/react-scroll-area": "^1.4.0",
+    "@radix-ui/react-select": "^2.4.1",
+    "@radix-ui/react-separator": "^1.2.0",
     "@radix-ui/react-slot": "^1.4.0",
     "@radix-ui/react-tabs": "^1.1.22",
+    "@radix-ui/react-toggle": "^1.2.1",
+    "@radix-ui/react-toggle-group": "^1.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
@@ -57,6 +66,7 @@
     "artifactName": "仓配订单汇总工具-${version}-${arch}.${ext}",
     "files": [
       "src/**/*",
+      "scripts/tampermonkey/**/*",
       "product-preset.json",
       "warehouse-preset.json",
       "package.json"

@@ -471,7 +471,7 @@ export function PlatformFeeView({ notice }) {
         {/* 选项卡与搜索栏 */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-3 border-b border-zinc-200 gap-2 bg-zinc-50/30">
           <div className="flex items-center gap-1 bg-zinc-200/60 p-0.5 rounded-lg text-xs self-start">
-            <button
+            <Button variant="ghost" size="unstyled"
               type="button"
               onClick={() => setActiveTab('summary')}
               className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
@@ -481,8 +481,8 @@ export function PlatformFeeView({ notice }) {
               }`}
             >
               费用汇总表（表二）
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="unstyled"
               type="button"
               onClick={() => setActiveTab('details')}
               className={`px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer ${
@@ -492,7 +492,7 @@ export function PlatformFeeView({ notice }) {
               }`}
             >
               流水明细打印表
-            </button>
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 
 export function Header({
   workflow,
+  replenishDaily = false,
   // Replenish actions
   summaryModeText,
   summaryCanExport,
@@ -31,6 +32,7 @@ export function Header({
   onOpenMasterData,
 }) {
   const titles = {
+    returns: { category: '仓配业务', name: '退货汇总', desc: '预约单导入 · 商品匹配 · 退货与入库汇总' },
     replenish: {
       category: '仓配计划',
       name: '补货与库存协同工作区',
@@ -46,9 +48,14 @@ export function Header({
       name: '财务结算与开票中心',
       desc: '猫超账单智能解析 · 费用项及方向筛选 · 开票通知单生成',
     },
+    competitor: {
+      category: '市场分析',
+      name: '市场与竞品洞察',
+      desc: '商品采集 · 规格比价 · 评价来源核对',
+    },
   };
 
-  const currentMeta = titles[workflow] || titles.replenish;
+  const currentMeta = workflow === 'replenish' && replenishDaily ? { category: '仓配计划', name: '日出库补货计划' } : titles[workflow] || titles.replenish;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-zinc-200/90 bg-white px-6 select-none shadow-xs">
@@ -63,7 +70,7 @@ export function Header({
         </div>
 
         {/* Dynamic Status Pill - Black & White */}
-        {workflow === 'replenish' && summaryModeText && (
+        {workflow === 'replenish' && !replenishDaily && summaryModeText && (
           <span
             id="modeBadge"
             className={cn(
@@ -117,7 +124,7 @@ export function Header({
 
       {/* Right: Dynamic Top Action Buttons - Strict Black & White */}
       <div className="flex items-center gap-2.5 shrink-0">
-        {workflow === 'replenish' && (
+        {workflow === 'replenish' && !replenishDaily && (
           <div id="summaryTopActions" className="flex items-center gap-2">
             <Button
               id="demandBtn"

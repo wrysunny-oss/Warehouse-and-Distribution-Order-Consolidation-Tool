@@ -1,0 +1,229 @@
+{
+  "item": {
+    "itemId": "990516814484",
+    "title": "米香世家猫牙米10斤装籼米长粒香米2026年新米优质当季粮食米业"
+  },
+  "skuBase": {
+    "components": [],
+    "skus": [
+      {
+        "propPath": "1627207:42541702516",
+        "skuId": "6029134068613"
+      }
+    ],
+    "props": [
+      {
+        "hasGroupTags": "false",
+        "packProp": "false",
+        "shouldGroup": "false",
+        "comboProperty": "false",
+        "values": [
+          {
+            "comboPropertyValue": "false",
+            "vid": "42541702516",
+            "corner": {
+              "cornerBackgroundColor": "#ff5000",
+              "skuCornerIcon": "",
+              "cornerPVPath": "1627207:42541702516",
+              "cornerBorderColor": "#FFFFFF",
+              "cornerTextColor": "#FFFFFF",
+              "cornerText": "店长主推"
+            },
+            "image": "https://gw.alicdn.com/bao/uploaded/i1/2219727793166/O1CN01fB5ZI21ZG548y1h0U_!!2219727793166-0-scmitem176000.jpg",
+            "name": "猫牙米10斤装（特惠）",
+            "selected": true,
+            "empty": false
+          }
+        ],
+        "hasImage": "true",
+        "pid": "1627207",
+        "bigImageMode": "true",
+        "nameDesc": "（1）",
+        "name": "颜色分类",
+        "showSizeRecommend": "false",
+        "valueMap": {
+          "42541702516": {
+            "comboPropertyValue": "false",
+            "vid": "42541702516",
+            "corner": {
+              "cornerBackgroundColor": "#ff5000",
+              "skuCornerIcon": "",
+              "cornerPVPath": "1627207:42541702516",
+              "cornerBorderColor": "#FFFFFF",
+              "cornerTextColor": "#FFFFFF",
+              "cornerText": "店长主推"
+            },
+            "image": "https://gw.alicdn.com/bao/uploaded/i1/2219727793166/O1CN01fB5ZI21ZG548y1h0U_!!2219727793166-0-scmitem176000.jpg",
+            "name": "猫牙米10斤装（特惠）",
+            "selected": true,
+            "empty": false
+          }
+        }
+      }
+    ]
+  },
+  "skuCore": {
+    "sku2info": {
+      "0": {
+        "price": {
+          "priceTitle": "优惠前",
+          "priceColorNew": "#7A7A7A",
+          "priceText": "38.28",
+          "priceMoney": "3828"
+        },
+        "subPrice": {
+          "priceColor": "#FFFFFF",
+          "priceTitle": "店铺优惠后",
+          "priceColorNew": "#FF5000",
+          "priceBgColor": "#FF5000",
+          "priceTitleColor": "#FFFFFF",
+          "fuzzyPrice": "true",
+          "priceText": "2?"
+        },
+        "logisticsTime": "预计明天发货，后天送达"
+      },
+      "6029134068613": {
+        "price": {
+          "priceTitle": "优惠前",
+          "priceColorNew": "#7A7A7A",
+          "priceText": "38.28",
+          "priceMoney": "3828"
+        },
+        "subPrice": {
+          "priceColor": "#FFFFFF",
+          "priceTitle": "店铺优惠后",
+          "priceColorNew": "#FF5000",
+          "priceBgColor": "#FF5000",
+          "priceTitleColor": "#FFFFFF",
+          "fuzzyPrice": "true",
+          "priceText": "2?"
+        },
+        "logisticsTime": "预计明天发货，后天送达"
+      }
+    }
+  },
+  "componentsVO": {
+    "deliveryVO": {
+      "freight": "快递: 免运费",
+      "agingDesc": "预计明天发货，后天送达"
+    },
+    "rateVO": {
+      "group": {
+        "items": [
+          {
+            "content": "猫牙米很好吃   蒸出来的米饭xuan软香甜 家人都非常喜欢"
+          },
+          {
+            "content": "这米价格非常的便宜 吃起来味道也非常的香 值得购买 量也非常的多 性价比非常的高 到货速度也非常的快"
+          }
+        ]
+      }
+    },
+    "extensionInfoVO": {
+      "infos": [
+        {
+          "title": "参数",
+          "type": "BASE_PROPS",
+          "items": [
+            {
+              "text": [
+                "米香世家"
+              ],
+              "title": "品牌"
+            },
+            {
+              "text": [
+                "猫牙米"
+              ],
+              "title": "系列"
+            },
+            {
+              "text": [
+                "中国大陆"
+              ],
+              "title": "产地"
+            },
+            {
+              "text": [
+                "安徽省"
+              ],
+              "title": "省份"
+            },
+            {
+              "text": [
+                "滁州市"
+              ],
+              "title": "城市"
+            },
+            {
+              "text": [
+                "香米"
+              ],
+              "title": "大米品种"
+            },
+            {
+              "text": [
+                "猫牙米10斤装 猫牙米10斤装（特惠）"
+              ],
+              "title": "颜色分类"
+            },
+            {
+              "text": [
+                "包装"
+              ],
+              "title": "包装方式"
+            },
+            {
+              "text": [
+                "长粒香大米"
+              ],
+              "title": "特产品类"
+            },
+            {
+              "text": [
+                "一等"
+              ],
+              "title": "等级"
+            },
+            {
+              "text": [
+                "7.1g/100g"
+              ],
+              "title": "蛋白质"
+            },
+            {
+              "text": [
+                "1474kJ/100g"
+              ],
+              "title": "能量"
+            },
+            {
+              "text": [
+                "1.1g/100g"
+              ],
+              "title": "脂肪"
+            },
+            {
+              "text": [
+                "77.2g/100g"
+              ],
+              "title": "碳水化合物"
+            },
+            {
+              "text": [
+                "0mg/100g"
+              ],
+              "title": "钠"
+            },
+            {
+              "text": [
+                "180天"
+              ],
+              "title": "保质期"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import React from 'react';
 import { 
   Boxes, 
@@ -5,7 +6,9 @@ import {
   Truck, 
   ReceiptText, 
   Settings, 
-  ChevronRight
+  ChevronRight,
+  TrendingUp,
+  RotateCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +22,13 @@ export function Sidebar({
   masterDataCount = 0,
 }) {
   const menuItems = [
+    {
+      id: 'returns',
+      label: '退货汇总',
+      sublabel: '预约单明细 · 退货与入库',
+      icon: RotateCcw,
+      isReady: false,
+    },
     {
       id: 'replenish',
       label: '补货与库存协同',
@@ -40,7 +50,15 @@ export function Sidebar({
       icon: ReceiptText,
       isReady: invoiceReady,
     },
+    {
+      id: 'competitor',
+      label: '市场与竞品洞察',
+      sublabel: '淘工厂大米 · 销量Top20',
+      icon: TrendingUp,
+      isReady: false,
+    },
   ];
+
 
   return (
     <aside className="w-64 bg-zinc-950 text-zinc-300 flex flex-col justify-between shrink-0 border-r border-zinc-800 select-none">
@@ -76,7 +94,7 @@ export function Sidebar({
             const isActive = workflow === item.id;
 
             return (
-              <button
+              <Button variant="ghost" size="unstyled"
                 key={item.id}
                 type="button"
                 onClick={() => onWorkflowChange(item.id)}
@@ -115,7 +133,7 @@ export function Sidebar({
                     <ChevronRight className="size-3.5 text-zinc-400" />
                   )}
                 </div>
-              </button>
+              </Button>
             );
           })}
         </nav>
@@ -123,7 +141,7 @@ export function Sidebar({
 
       {/* Bottom Master Data & Presets Dock */}
       <div className="p-3 border-t border-zinc-800/80 bg-zinc-950">
-        <button
+        <Button variant="ghost" size="unstyled"
           type="button"
           onClick={onOpenMasterData}
           className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-850 hover:bg-zinc-800 text-zinc-200 text-xs transition-colors border border-zinc-800 cursor-pointer shadow-xs group"
@@ -144,7 +162,7 @@ export function Sidebar({
           <span className="text-[10px] bg-zinc-800 text-zinc-300 border border-zinc-700/80 px-1.5 py-0.5 rounded font-mono font-medium shrink-0">
             {masterDataCount > 0 ? `${masterDataCount}项` : '管理'}
           </span>
-        </button>
+        </Button>
       </div>
     </aside>
   );

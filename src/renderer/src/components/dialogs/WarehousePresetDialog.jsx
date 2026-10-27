@@ -1,3 +1,4 @@
+import { Checkbox } from '@/components/ui/checkbox';
 import React, { useState, useMemo } from 'react';
 import {
   Dialog,
@@ -363,12 +364,7 @@ export function WarehousePresetDialog({
               </div>
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={newForm.inStats}
-                    onChange={(e) => setNewForm({ ...newForm, inStats: e.target.checked })}
-                    className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500"
-                  />
+                  <Checkbox checked={newForm.inStats} className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500" onCheckedChange={checked => setNewForm({ ...newForm, inStats: (checked === true) })} aria-label="参与补货统计" />
                   <span className="text-xs font-medium text-zinc-700">参与补货统计</span>
                 </label>
               </div>
@@ -424,12 +420,7 @@ export function WarehousePresetDialog({
                           {index + 1}
                         </TableCell>
                         <TableCell className="text-center">
-                          <input
-                            type="checkbox"
-                            checked={editForm.inStats}
-                            onChange={(e) => setEditForm({ ...editForm, inStats: e.target.checked })}
-                            className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                          />
+                          <Checkbox checked={editForm.inStats} className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 cursor-pointer" onCheckedChange={checked => setEditForm({ ...editForm, inStats: (checked === true) })} aria-label="参与补货统计" />
                         </TableCell>
                         <TableCell>
                           <Input
@@ -511,13 +502,7 @@ export function WarehousePresetDialog({
                         {index + 1}
                       </TableCell>
                       <TableCell className="text-center">
-                        <input
-                          type="checkbox"
-                          checked={f.inStats}
-                          onChange={() => handleToggleStats(index)}
-                          className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                          title={f.inStats ? '点击取消参与统计' : '点击勾选参与统计'}
-                        />
+                        <Checkbox checked={f.inStats} className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 cursor-pointer" title={f.inStats ? '点击取消参与统计' : '点击勾选参与统计'} onCheckedChange={() => handleToggleStats(index)} aria-label="参与补货统计" />
                       </TableCell>
                       <TableCell>
                         {f.region ? (
